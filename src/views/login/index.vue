@@ -115,9 +115,20 @@ export default {
           this.$store.dispatch('user/login', this.loginForm).then(() => {
             this.$router.push({ path: this.redirect || '/' })
             this.loading = false
-          }).catch(() => {
-            console.log('处理登陆请求失败')
-            // this.$message.error(error.message || '登录失败，请重试')
+          }).catch((error) => {
+            // 根据错误响应显示不同的友好提示
+            if (error.response && error.response.status === 500) {
+              if (error.response && error.response.error &&
+              error.response.error.includes('users.user.kubeants.io "user" not found')) {
+                this.$message.error('用户名不存在或密码错误')
+              } else {
+                this.$message.error('服务器内部错误，请稍后再试')
+              }
+            } else if (error.message) {
+              this.$message.error(error.message)
+            } else {
+              this.$message.error('登录失败，请检查网络连接或联系管理员')
+            }
             this.loading = false
           })
         } else {
