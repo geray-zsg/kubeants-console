@@ -1,3 +1,4 @@
+<!-- src/views/login/index.vue -->
 <template>
   <div class="login-container">
     <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" auto-complete="on" label-position="left">
@@ -53,6 +54,7 @@
 </template>
 
 <script>
+// import store from '@/store'
 import { validUsername } from '@/utils/validate'
 
 export default {
@@ -110,32 +112,44 @@ export default {
     handleLogin() {
       this.$refs.loginForm.validate(valid => {
         if (valid) {
-          console.log('----------------> valid', this.username)
           this.loading = true
-          this.$store.dispatch('user/login', this.loginForm).then(() => {
-            this.$router.push({ path: this.redirect || '/' })
-            this.loading = false
-          }).catch((error) => {
-            // 根据错误响应显示不同的友好提示
-            if (error.response && error.response.status === 500) {
-              if (error.response && error.response.error &&
-              error.response.error.includes('users.user.kubeants.io "user" not found')) {
-                this.$message.error('用户名不存在或密码错误')
-              } else {
-                this.$message.error('服务器内部错误，请稍后再试')
-              }
-            } else if (error.message) {
-              this.$message.error(error.message)
-            } else {
-              this.$message.error('登录失败，请检查网络连接或联系管理员')
-            }
-            this.loading = false
-          })
+          this.$store.dispatch('user/login', this.loginForm)
+            .then(() => this.$store.dispatch('user/getInfo'))
+            .then(() => this.$store.dispatch('dashboard/getWorkspaces')) // src/store/modules/dashboard.js 包含 getWorkspaces 的 action
+            .then(() => {
+              this.$router.push({ path: this.redirect || '/' })
+            })
+            .catch(error => {
+              this.handleLoginError(error)
+            })
+            .finally(() => {
+              this.loading = false
+            })
         } else {
           console.log('error submit!!')
           return false
         }
       })
+    },
+    handleLoginError(error) {
+      let message = '登录失败，请检查网络连接或联系管理员'
+
+      if (error.response) {
+        switch (error.response.status) {
+          case 401:
+            message = '身份验证失败，请检查用户名密码'
+            break
+          case 404:
+            message = '用户不存在'
+            break
+          case 500:
+            message = '服务器内部错误，请稍后再试'
+            break
+        }
+      }
+
+      this.$message.error(message)
+      console.error('登录错误详情:', error)
     }
   }
 }

@@ -1,3 +1,4 @@
+// src/store/modules/user.js
 import { login, getInfo } from '@/api/user'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { resetRouter } from '@/router'
@@ -6,11 +7,11 @@ const getDefaultState = () => {
   return {
     token: getToken(),
     name: '',
+    email: '',
     // avatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
     avatar: require('@/assets/user-avatar.gif'),
     roles: [],
     menus: []
-
   }
 }
 
@@ -26,15 +27,21 @@ const mutations = {
   SET_USERNAME: (state, name) => {
     state.name = name
   },
+  SET_EMAIL: (state, email) => {
+    state.email = email
+  },
   // 设置头像
   SET_AVATAR: (state, avatar) => {
     state.avatar = avatar
   },
-  SET_ROLES: (state, roles) => {
-    state.roles = roles
-  },
+  // SET_ROLES: (state, roles) => {
+  //   state.roles = roles
+  // },
   SET_MENUS: (state, menus) => {
     state.menus = menus
+  },
+  SET_WORKSPACES: (state, workspaces) => {
+    state.workspaces = workspaces
   }
 }
 
@@ -49,7 +56,7 @@ const actions = {
         commit('SET_TOKEN', response.token)
         commit('SET_USERNAME', username)
         setToken(response.token)
-        resolve()
+        resolve(response)
       }).catch(error => {
         console.error('Login failed:', error) // 调试日志
         reject(error)
@@ -60,13 +67,17 @@ const actions = {
   // get user info (now uses state data directly)
   async getInfo({ commit, state }) {
     try {
-      const response = await getInfo(state.username)
-      console.log('getInfo用户信息', response)
-      commit('SET_ROLES', response.roles)
-      commit('SET_MENUS', response.menus)
+      const response = await getInfo(state.name)
+
+      const email = response.data.spec?.email || ''
+      const displayName = response.data.spec?.name || state.name
+      commit('SET_EMAIL', email) // 设置email
+      commit('SET_MENUS', displayName)
+
+      console.log('用户信息', displayName, email)
       return response
     } catch (error) {
-      console.log('getInfo用户信息失败', error)
+      console.error('获取用户信息失败:', error)
       throw error
     }
     // return new Promise((resolve) => {
@@ -107,11 +118,19 @@ const actions = {
     })
   }
 }
+// 在模块末尾添加getters配置
+const getters = {
+  username: state => state.name,
+  email: state => state.email,
+  avatar: state => state.avatar,
+  roles: state => state.roles
+}
 
 export default {
   namespaced: true,
   state,
   mutations,
-  actions
+  actions,
+  getters
 }
 

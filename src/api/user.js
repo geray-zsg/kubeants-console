@@ -1,17 +1,17 @@
+// src/api/user.js
 import request from '@/utils/request'
 
 export function login(data) {
   return request({
-    url: '/gapi/login',
+    url: '/gapi/system/login',
     method: 'post',
     data
   })
 }
 
-export function getInfo( username ) {
-
+export function getInfo(username) {
   // 构造请求 URL
-  const url = `/gapi/cluster/test/workspace/test/apis/user.kubeants.io/v1beta1/users/${username}`
+  const url = `/gapi/system/userinfo/${username}`
 
   // 打印调试信息
   console.log('Request URL:', url)

@@ -19,7 +19,9 @@ service.interceptors.request.use(
       // let each request carry token
       // ['X-Token'] is a custom headers key
       // please modify it according to the actual situation
-      config.headers['X-Token'] = getToken() // 将token每次都带入请求头，不用每次给接口都写token信息
+      const token = getToken()
+      config.headers['X-Token'] = token // 将token每次都带入请求头，不用每次给接口都写token信息
+      config.headers['Authorization'] = `Bearer ${token}`
     }
     return config
   },

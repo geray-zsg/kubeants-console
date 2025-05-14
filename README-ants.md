@@ -18,3 +18,15 @@ git filter-repo --path path/to/your/file --invert-paths-regex 'node_modules/publ
 # 或者直接删除文件
 rm -rf node_modules/public-encrypt/test/test_rsa_privkey.pem
 ```
+
+# 代码提交
+```bash
+echo "# kubeants-console" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git tag v1.0.0
+git branch -M main
+git remote add origin git@github.com:geray-zsg/kubeants-console.git
+git push -u origin main v1.0.0
+```
