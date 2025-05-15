@@ -1,5 +1,6 @@
 // src/api/user.js
 import request from '@/utils/request'
+// import user from 'mock/user'
 
 export function login(data) {
   return request({
@@ -11,6 +12,15 @@ export function login(data) {
 
 export function getInfo(username) {
   // 构造请求 URL
+  if (!username) {
+    console.log('接口为传递用户数据从本地存储获取用户名')
+    // return Promise.reject('未找到用户信息')
+    username = localStorage.getItem('username')
+  }
+  if (!username) {
+    return Promise.reject('未找到用户信息')
+  }
+  console.log('api username', username)
   const url = `/gapi/system/userinfo/${username}`
 
   // 打印调试信息

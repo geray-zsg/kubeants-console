@@ -56,45 +56,39 @@ export const constantRoutes = [
   },
 
   // {
-  //   path: '/clusters',
+  //   path: '/workspace',
   //   component: Layout,
-  //   redirect: '/example/table',
-  //   name: 'Example',
-  //   meta: { title: '集群概览', icon: 'el-icon-s-help' },
-  //   /* 集群健康状态（节点、Pod、服务数量及状态）
-  //   资源使用情况（CPU、内存、存储等）
-  //   事件日志（最近的重要事件和警告） */
+  //   redirect: '/workspace/table',
+  //   name: 'workspace',
+  //   meta: { title: 'workspace', icon: 'el-icon-s-help' },
   //   children: [
-  //     // {
-  //     //   path: 'table',
-  //     //   name: 'Table',
-  //     //   component: () => import('@/views/tree/index'),
-  //     //   meta: { title: 'Table', icon: 'table' }
-  //     // },
-  //     // {
-  //     //   path: 'tree',
-  //     //   name: 'Tree',
-  //     //   component: () => import('@/views/tree/index'),
-  //     //   meta: { title: 'Tree', icon: 'tree' }
-  //     // }
+  //     {
+  //       path: 'namespace',
+  //       name: 'namespace',
+  //       component: () => import('@/views/workspace/index'),
+  //       meta: { title: 'namespace', icon: 'table' }
+  //     },
+  //     {
+  //       path: 'user',
+  //       name: 'user',
+  //       component: () => import('@/views/workspace/index'),
+  //       meta: { title: 'user', icon: 'tree' }
+  //     }
   //   ]
   // },
 
-  //   {
-  //     path: '/form',
-  //     component: Layout,
-  //     children: [
-  //       {
-  //         path: 'index',
-  //         name: 'Form',
-  //         component: () => import('@/views/form/index'),
-  //         meta: { title: '节点管理', icon: 'form' }
-  //         /* 节点列表（状态、资源使用情况）
-  // 节点标签与污点（标签管理和调度策略）
-  // 节点维护（排空、升级、重启） */
-  //       }
-  //     ]
-  //   },
+  {
+    path: '/workspace',
+    component: Layout,
+    children: [
+      {
+        path: ':workspaceName', // 动态参数
+        name: 'workspace', // 注意：这里是 'workspace'
+        component: () => import('@/views/workspace/index.vue'),
+        meta: { title: 'Workspace', icon: 'tree' }
+      }
+    ]
+  },
 
   {
     path: '/workloads',

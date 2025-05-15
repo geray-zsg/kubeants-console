@@ -10,7 +10,7 @@
           <el-empty description="当前用户未加入任何 Workspace" />
         </div>
         <div v-else>
-          <el-table :data="workspaces" border style="width: 100%">
+          <el-table :data="workspaces" border style="width: 100%" @row-click="goToWorkspace">
             <el-table-column label="Workspace 名称">
               <template v-slot="{ row }">
                 {{ row.name || '未知空间' }}
@@ -46,6 +46,19 @@ export default {
       await this.$store.dispatch('dashboard/getWorkspaces', this.username)
     } catch (error) {
       this.$message.error('工作空间加载失败')
+    }
+  },
+  methods: {
+    goToWorkspace(row) {
+      // if (row.name) {
+      //   this.$router.push({ name: 'workspace', params: { workspaceName: row.name }})
+      // }
+      if (row.name) {
+        console.log('跳转到 Workspace:', row.name)
+        this.$router.push({ name: 'workspace', params: { workspaceName: row.name }})
+      } else {
+        console.warn('无效的 Workspace 名称')
+      }
     }
   }
 }

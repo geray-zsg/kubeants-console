@@ -2,6 +2,7 @@
 import { login, getInfo } from '@/api/user'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { resetRouter } from '@/router'
+// import user from 'mock/user'
 
 const getDefaultState = () => {
   return {
@@ -37,9 +38,9 @@ const mutations = {
   // SET_ROLES: (state, roles) => {
   //   state.roles = roles
   // },
-  SET_MENUS: (state, menus) => {
-    state.menus = menus
-  },
+  // SET_MENUS: (state, menus) => {
+  //   state.menus = menus
+  // },
   SET_WORKSPACES: (state, workspaces) => {
     state.workspaces = workspaces
   }
@@ -55,6 +56,8 @@ const actions = {
         console.log('Login response:', response, 'username', username) // 调试日志，确认数据结构
         commit('SET_TOKEN', response.token)
         commit('SET_USERNAME', username)
+        localStorage.setItem('token', response.token) // 存储Token
+        localStorage.setItem('username', username) // 存储用户名
         setToken(response.token)
         resolve(response)
       }).catch(error => {
@@ -80,28 +83,11 @@ const actions = {
       console.error('获取用户信息失败:', error)
       throw error
     }
-    // return new Promise((resolve) => {
-    //   // 直接从 state 中获取用户信息
-    //   const userInfo = {
-    //     name: state.name,
-    //     avatar: state.avatar
-    //   }
-    //   console.log("getInfo用户信息",userInfo)
-    //   resolve(userInfo)
-    // })
   },
 
   // user logout
   logout({ commit, state }) {
     return new Promise((resolve, reject) => {
-      // logout(state.token).then(() => { // 给后端发请求注销
-      //   removeToken() // 重置
-      //   resetRouter()
-      //   commit('RESET_STATE')
-      //   resolve()
-      // }).catch(error => {
-      //   reject(error)
-      // })
       removeToken() // 重置，直接通过前端注销不需要给后端发请求
       resetRouter()
       commit('RESET_STATE')

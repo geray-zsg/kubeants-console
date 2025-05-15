@@ -22,8 +22,9 @@ const actions = {
   async getWorkspaces({ commit, rootState }, username) {
     try {
       // 从rootState获取用户名（更可靠的方式）
-      const realUsername = username || rootState.user.name
+      const realUsername = username || localStorage.getItem('username')
 
+      console.log('realUsername', realUsername)
       // 调用api的getWorkspaces
       const respData = await getWorkspaces(realUsername)
       console.log('username realUsername:', realUsername)

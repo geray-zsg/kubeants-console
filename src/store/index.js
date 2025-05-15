@@ -7,6 +7,7 @@ import user from './modules/user'
 import tagsView from './modules/tagsView'
 import permission from './modules/permission'
 import dashboard from './modules/dashboard'
+import workspace from './modules/workspace'
 
 Vue.use(Vuex)
 
@@ -17,7 +18,8 @@ const store = new Vuex.Store({
     user,
     tagsView,
     permission,
-    dashboard
+    dashboard,
+    workspace
   },
   getters
 })
