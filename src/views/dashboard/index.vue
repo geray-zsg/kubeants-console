@@ -4,7 +4,6 @@
     <div class="info-box">📧 邮箱: {{ email }}</div>
 
     <el-tabs v-model="activeTab" class="no-transition-tabs">
-      <!-- <el-tabs v-model="activeTab" class="optimized-tabs"> -->
       <el-tab-pane label="workspace栏" name="workspace">
         <div class="table-header">
           <el-input
@@ -64,8 +63,6 @@
           <el-descriptions-item label="创建时间">{{ viewedWorkspace.creationTimestamp }}</el-descriptions-item>
         </el-descriptions>
       </el-dialog>
-      <!-- =====查看workspace详情弹窗结束===== -->
-
       <!-- =====编辑workspace弹窗开始===== -->
       <el-dialog
         title="编辑 Workspace"
@@ -98,7 +95,6 @@
           <el-button type="primary" @click="submitWorkspaceEdit">保存</el-button>
         </span>
       </el-dialog>
-      <!-- =====编辑workspace弹窗结束===== -->
       <!-- =====新建workspace弹窗开始===== -->
       <el-dialog
         title="新建Workspace"
@@ -147,8 +143,7 @@
           >确认创建</el-button>
         </span>
       </el-dialog>
-      <!-- =====新建workspace弹窗结束===== -->
-
+      <!-- 用户表格部分 -->
       <el-tab-pane v-if="isClusterAdmin" label="用户栏" name="user">
         <div class="table-header">
           <el-input
@@ -164,7 +159,6 @@
             @click="createUser"
           >新建用户</el-button>
         </div>
-        <!-- 用户表格部分 -->
         <el-table :data="filteredUserList" border>
           <el-table-column prop="metadata.name" label="用户名" width="120" />
           <el-table-column prop="spec.email" label="邮箱" />
@@ -181,7 +175,6 @@
             </template>
           </el-table-column>
         </el-table>
-
         <!-- =====创建用户弹窗开始===== -->
         <el-dialog
           title="新建用户"
@@ -214,24 +207,20 @@
                 placeholder="至少8位，包含大小写字母和数字"
               />
             </el-form-item>
-
             <el-form-item label="手机号" prop="phone">
               <el-input v-model="userForm.phone" placeholder="用户联系电话" />
             </el-form-item>
-
             <el-form-item label="账号状态">
               <el-select v-model="userForm.state">
                 <el-option label="激活" value="active" />
                 <el-option label="禁用" value="disabled" />
               </el-select>
             </el-form-item>
-
             <el-form-item label="角色分配">
               <el-radio-group v-model="userForm.roleType">
                 <el-radio label="workspace">Workspace角色</el-radio>
                 <el-radio label="cluster">集群角色</el-radio>
               </el-radio-group>
-              <!-- 默认选中的菜单栏userForm.roleType === 'workspace' -->
               <template v-if="userForm.roleType === 'workspace'">
                 <el-select
                   v-model="userForm.workspaceName"
@@ -272,28 +261,109 @@
             >确认创建</el-button>
           </span>
         </el-dialog>
-        <!-- =====创建用户弹窗结束===== -->
         <!-- =====用户弹窗权限详情 Dialog开始===== -->
         <el-dialog :visible.sync="permissionDialogVisible" title="用户权限详情" width="600px">
-          <!-- 修改1：使用独立的 permissionActiveTab -->
+          <!-- 使用独立的 permissionActiveTab -->
           <el-tabs v-model="permissionActiveTab">
             <el-tab-pane label="集群角色" name="cluster">
+              <el-button size="mini" type="primary" @click="openAddBinding('cluster')">添加集群权限</el-button>
               <el-table :data="clusterRoles">
                 <el-table-column label="角色" prop="role" />
                 <el-table-column label="来源" prop="bindingName" />
+                <el-table-column label="操作" width="100">
+                  <template v-slot="{ row }">
+                    <el-button size="mini" type="danger" @click="removeBinding(row)">移除</el-button>
+                  </template>
+                </el-table-column>
               </el-table>
             </el-tab-pane>
             <el-tab-pane label="Workspace 角色" name="workspace">
+              <el-button size="mini" type="primary" @click="openAddBinding('workspace')">添加Workspace权限</el-button>
               <el-table :data="workspaceRoles">
                 <el-table-column label="Workspace" prop="workspace" />
                 <el-table-column label="角色" prop="role" />
                 <el-table-column label="来源" prop="bindingName" />
+                <el-table-column label="操作" width="100">
+                  <template v-slot="{ row }">
+                    <el-button size="mini" type="danger" @click="removeBinding(row)">移除</el-button>
+                  </template>
+                </el-table-column>
               </el-table>
             </el-tab-pane>
           </el-tabs>
         </el-dialog>
-        <!-- =====用户弹窗权限详情 Dialog结束===== -->
+        <!-- 用户权限弹框中的添加权限弹框操作 -->
+        <el-dialog title="添加权限" :visible.sync="addBindingDialogVisible">
+          <el-form :model="addBindingForm" label-width="100px">
+            <el-form-item label="权限类型">
+              <el-input v-model="addBindingForm.type" disabled />
+            </el-form-item>
+            <el-form-item label="角色">
+              <el-select v-model="addBindingForm.role" placeholder="选择角色">
+                <el-option label="管理员" value="admin" />
+                <el-option label="编辑者" value="edit" />
+                <el-option label="查看者" value="view" />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="addBindingForm.type === 'workspace'" label="Workspace">
+              <el-select v-model="addBindingForm.workspace" placeholder="选择Workspace">
+                <el-option v-for="ws in workspaces" :key="ws.name" :label="ws.name" :value="ws.name" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <span slot="footer">
+            <el-button @click="addBindingDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitAddBinding">确认</el-button>
+          </span>
+        </el-dialog>
+        <!-- =====查看用户详情弹窗==== -->
+        <!-- 添加查看用户弹窗 -->
+        <el-dialog
+          title="用户详情"
+          :visible.sync="viewUserDialogVisible"
+          width="600px"
+        >
+          <el-descriptions v-if="viewedUser" :column="1" border>
+            <el-descriptions-item label="账号">{{ viewedUser.metadata.name }}</el-descriptions-item>
+            <el-descriptions-item label="姓名">{{ viewedUser.spec.name }}</el-descriptions-item>
+            <el-descriptions-item label="邮箱">{{ viewedUser.spec.email }}</el-descriptions-item>
+            <el-descriptions-item label="状态">{{ viewedUser.spec.state }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ viewedUser.metadata.creationTimestamp }}</el-descriptions-item>
+          </el-descriptions>
+        </el-dialog>
+        <!-- =====编辑用户弹窗==== -->
+        <el-dialog
+          title="编辑用户"
+          :visible.sync="editUserDialogVisible"
+          width="600px"
+        >
+          <el-form :model="userEditForm" label-width="100px">
+            <el-form-item label="账号">
+              <el-input v-model="userEditForm.username" disabled />
+            </el-form-item>
+            <el-form-item label="姓名">
+              <el-input v-model="userEditForm.displayName" />
+            </el-form-item>
+            <el-form-item label="邮箱">
+              <el-input v-model="userEditForm.email" />
+            </el-form-item>
+            <el-form-item label="电话">
+              <el-input v-model="userEditForm.phone" />
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-select v-model="userEditForm.state">
+                <el-option label="激活" value="active" />
+                <el-option label="禁用" value="disabled" />
+                <el-option label="删除" value="deleted" />
+              </el-select>
+            </el-form-item>
+          </el-form>
 
+          <span slot="footer">
+            <el-button @click="editUserDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitUserEdit">保存</el-button>
+          </span>
+        </el-dialog>
         <el-alert title="此区域仅集群管理员可见，可用于查看和管理所有用户。" type="info" show-icon />
       </el-tab-pane>
     </el-tabs>
@@ -328,12 +398,23 @@ export default {
       permissionActiveTab: 'cluster', // 权限弹框独立标签变量
       clusterRoles: [],
       workspaceRoles: [],
+      // 查看、编辑用户
+      viewUserDialogVisible: false,
+      editUserDialogVisible: false,
+      userEditForm: {
+        username: '',
+        displayName: '',
+        email: '',
+        phone: '',
+        state: 'active'
+      },
       // workspace相关
       workspaceSearch: '',
       userSearch: '',
       activeTab: 'workspace',
       // 查看和编辑workspace
       viewWorkspaceDialogVisible: false,
+      viewedUser: null,
       editWorkspaceDialogVisible: false,
       viewedWorkspace: {
         name: '',
@@ -381,6 +462,12 @@ export default {
         ]
       },
       // 创建用户表单
+      addBindingDialogVisible: false, // 新增权限管理相关数据
+      addBindingForm: {
+        type: '', // 'cluster' 或 'workspace'
+        role: '',
+        workspace: ''
+      },
       createUserDialogVisible: false,
       createLoading: false,
       userForm: {
@@ -424,7 +511,7 @@ export default {
     filteredWorkspaces() {
       return this.workspaces.filter(ws =>
         (!this.workspaceSearch || ws.name.includes(this.workspaceSearch)) &&
-        ws.name && ws.role
+          ws.name && ws.role
       )
     },
     filteredUserList() {
@@ -519,7 +606,7 @@ export default {
           await this.$api.dashboard.checkWorkspaceExists(value)
           callback(new Error('该名称已被使用'))
         } catch (error) {
-          error.response?.status === 404 ? callback() : callback()
+            error.response?.status === 404 ? callback() : callback()
         }
       }, 300)
     },
@@ -529,12 +616,12 @@ export default {
 
     // 重置表单
     resetWorkspaceForm() {
-      this.$refs.workspaceForm?.resetFields()
-      this.workspaceForm = {
-        name: '',
-        alias: '',
-        description: ''
-      }
+        this.$refs.workspaceForm?.resetFields()
+        this.workspaceForm = {
+          name: '',
+          alias: '',
+          description: ''
+        }
     },
 
     // 提交表单
@@ -583,17 +670,62 @@ export default {
       })
     },
 
-    viewUser(row) {
-      this.$message.info(`查看用户: ${row.metadata.name}`)
+    async viewUser(row) {
+      try {
+        this.viewedUser = await this.$store.dispatch('dashboard/getUserDetail', row.metadata.name)
+        this.viewUserDialogVisible = true
+      } catch (error) {
+        this.$message.error('加载用户详情失败')
+      }
     },
     editUser(row) {
-      this.$message.info(`编辑用户: ${row.metadata.name}`)
+      this.userEditForm = {
+        username: row.metadata.name,
+        displayName: row.spec?.name || '',
+        email: row.spec?.email || '',
+        phone: row.spec?.phone || '',
+        state: row.spec?.state || 'active'
+      }
+      this.editUserDialogVisible = true
+    },
+
+    async submitUserEdit() {
+      try {
+        const patch = {
+          apiVersion: 'user.kubeants.io/v1beta1',
+          kind: 'User',
+          metadata: {
+            name: this.userEditForm.username
+          },
+          spec: {
+            name: this.userEditForm.displayName,
+            email: this.userEditForm.email,
+            phone: this.userEditForm.phone,
+            state: this.userEditForm.state
+          }
+        }
+
+        await this.$store.dispatch('dashboard/updateUser', {
+          name: this.userEditForm.username,
+          patch
+        })
+
+        this.$message.success('用户信息更新成功')
+        this.editUserDialogVisible = false
+      } catch (error) {
+        this.$message.error('更新用户失败: ' + (error.message || '未知错误'))
+      }
     },
     deleteUser(row) {
       this.$confirm(`确认删除用户 ${row.metadata.name}？`, '提示', {
         type: 'warning'
-      }).then(() => {
-        this.$message.success('用户已删除')
+      }).then(async() => {
+        try {
+          await this.$store.dispatch('dashboard/deleteUser', row.metadata.name)
+          this.$message.success('用户删除成功')
+        } catch (err) {
+          this.$message.error('删除失败: ' + (err.message || '未知错误'))
+        }
       })
     },
 
@@ -603,125 +735,127 @@ export default {
     },
     // 新建用户弹窗表单字段定义
     resetUserForm() {
-    this.$refs.userForm?.resetFields()
-    this.userForm = {
-      username: '',
-      displayName: '',
-      email: '',
-      password: '',
-      phone: '',
-      state: 'active',
-      roleType: 'workspace',
-      clusterRole: '',
-      workspaceName: '',
-      workspaceRole: ''
-    }
+      this.$refs.userForm?.resetFields()
+      this.userForm = {
+        username: '',
+        displayName: '',
+        email: '',
+        password: '',
+        phone: '',
+        state: 'active',
+        roleType: 'workspace',
+        clusterRole: '',
+        workspaceName: '',
+        workspaceRole: ''
+      }
     },
     // 创建触发调用store接口
+    // 提交用户创建
     submitUserForm() {
-      this.$refs.userForm.validate((valid) => {
+      this.$refs.userForm.validate(async(valid) => {
         if (!valid) return
 
-        this.loading = true
+        this.createLoading = true
 
-        // 1. 构建 User 资源对象
-        const userPayload = {
-          apiVersion: 'user.kubeants.io/v1beta1',
-          kind: 'User',
-          metadata: {
-            name: this.userForm.username
-          },
-          spec: {
-            displayName: this.userForm.displayName,
-            email: this.userForm.email,
-            phone: this.userForm.phone,
-            state: this.userForm.state
+        try {
+          // 构造 user 对象
+          const userPayload = {
+            apiVersion: 'user.kubeants.io/v1beta1',
+            kind: 'User',
+            metadata: {
+              name: this.userForm.username
+            },
+            spec: {
+              displayName: this.userForm.displayName,
+              email: this.userForm.email,
+              phone: this.userForm.phone,
+              state: this.userForm.state
+            }
           }
-        }
 
-        if (this.userForm.password) {
-          userPayload.spec.password = this.userForm.password
-        }
+          if (this.userForm.password) {
+            userPayload.spec.password = this.userForm.password
+          }
 
-        // 2. 检查是否需要添加默认的 UserBinding
-        if (
-          !this.userForm.roleType ||
-        (this.userForm.roleType === 'workspace' && (!this.userForm.workspaceName || !this.userForm.workspaceRole)) ||
-        (this.userForm.roleType === 'cluster' && !this.userForm.clusterRole)
-        ) {
-        // 默认添加 wspublic:view
-          this.userForm.roleType = 'workspace'
-          this.userForm.workspaceName = 'wspublic'
-          this.userForm.workspaceRole = 'view'
-        }
+          // 角色默认值处理
+          if (
+            !this.userForm.roleType ||
+          (this.userForm.roleType === 'workspace' && (!this.userForm.workspaceName || !this.userForm.workspaceRole)) ||
+          (this.userForm.roleType === 'cluster' && !this.userForm.clusterRole)
+          ) {
+            this.userForm.roleType = 'workspace'
+            this.userForm.workspaceName = 'wspublic'
+            this.userForm.workspaceRole = 'view'
+          }
 
-        // 3. 构建 UserBinding 对象
-        const bindings = []
-        if (this.userForm.roleType === 'cluster') {
-          bindings.push({
-            apiVersion: 'userbinding.kubeants.io/v1beta1',
-            kind: 'UserBinding',
-            metadata: {
-              name: `cluster--${this.userForm.username}`
-            },
-            spec: {
-              user: this.userForm.username,
-              role: this.userForm.clusterRole,
-              scope: {
-                kind: 'Cluster',
-                name: 'kubeantscluster'
+          // 构造 userbinding 列表
+          const bindings = []
+          if (this.userForm.roleType === 'cluster') {
+            bindings.push({
+              apiVersion: 'userbinding.kubeants.io/v1beta1',
+              kind: 'UserBinding',
+              metadata: {
+                name: `cluster-${this.userForm.clusterRole}-${this.userForm.username}`
+              },
+              spec: {
+                user: this.userForm.username,
+                role: this.userForm.clusterRole,
+                scope: {
+                  kind: 'Cluster',
+                  name: 'kubeantscluster'
+                }
               }
-            }
-          })
-        } else if (this.userForm.roleType === 'workspace') {
-          bindings.push({
-            apiVersion: 'userbinding.kubeants.io/v1beta1',
-            kind: 'UserBinding',
-            metadata: {
-              name: `workspace-${this.userForm.workspaceName}-${this.userForm.username}`
-            },
-            spec: {
-              user: this.userForm.username,
-              role: this.userForm.workspaceRole,
-              scope: {
-                kind: 'Workspace',
-                name: this.userForm.workspaceName
+            })
+          } else {
+            bindings.push({
+              apiVersion: 'userbinding.kubeants.io/v1beta1',
+              kind: 'UserBinding',
+              metadata: {
+                name: `workspace-${this.userForm.workspaceName}-${this.userForm.username}`
+              },
+              spec: {
+                user: this.userForm.username,
+                role: this.userForm.workspaceRole,
+                scope: {
+                  kind: 'Workspace',
+                  name: this.userForm.workspaceName
+                }
               }
-            }
+            })
+          }
+
+          // ✅ 使用 store 调用统一创建接口
+          await this.$store.dispatch('dashboard/createUserWithBinding', {
+            user: userPayload,
+            bindings
           })
+
+          this.$message.success('用户创建成功')
+          this.createUserDialogVisible = false
+        } catch (err) {
+          this.$message.error('创建失败：' + (err.message || '未知错误'))
+        } finally {
+          this.createLoading = false
         }
-
-        // 4. 并发创建资源
-        const requests = [
-          this.$k8s.postCustomResource('user.kubeants.io', 'v1beta1', '', 'users', userPayload)
-        ]
-        bindings.forEach((binding) => {
-          requests.push(
-            this.$k8s.postCustomResource('userbinding.kubeants.io', 'v1beta1', '', 'userbindings', binding)
-          )
-        })
-
-        Promise.all(requests)
-          .then(() => {
-            this.$message.success('用户创建成功')
-            this.getUsers()
-            this.userDialogVisible = false
-          })
-          .catch((err) => {
-            this.$message.error('创建失败：' + (err.message || '未知错误'))
-          })
-          .finally(() => {
-            this.loading = false
-          })
       })
     },
     // 用户角色权限查看弹窗
     async viewPermissions(user) {
       try {
-        const username = user.metadata.name
-        const userbindings = await this.$store.dispatch('dashboard/getUserBindings', { username })
+        // 确保传入的用户对象有效
+        if (!user || !user.metadata?.name) {
+          throw new Error('无效的用户对象')
+        }
 
-        // 过滤角色数据
+        // 显式更新 viewedUser
+        this.viewedUser = await this.$store.dispatch('dashboard/getUserDetail', user.metadata.name)
+
+        // 加载权限绑定
+        const userbindings = await this.$store.dispatch('dashboard/getUserBindings', {
+          username: this.viewedUser.metadata.name
+        })
+
+        // 更新集群和Workspace角色列表
         this.clusterRoles = userbindings
           .filter(b => b.spec?.scope?.kind?.toLowerCase() === 'cluster')
           .map(b => ({
@@ -737,94 +871,165 @@ export default {
             bindingName: b.metadata?.name || 'unknown'
           }))
 
-        // 修改2：每次打开弹框时重置标签状态
-        this.permissionActiveTab = 'cluster' // [!code ++]
+        // 打开权限弹窗
+        this.permissionActiveTab = 'cluster'
         this.permissionDialogVisible = true
       } catch (error) {
-        this.$message.error('加载用户权限失败: ' + error.message)
+        this.$message.error(`加载权限失败: ${error.message}`)
+      }
+    },
+    // 权限弹框中的添加和移除权限功能
+    async removeBinding(row) {
+      try {
+        await this.$store.dispatch('dashboard/removeUserBinding', row.bindingName)
+        this.$message.success('权限已移除')
+        // 刷新权限列表
+        await this.viewPermissions({ metadata: { name: this.viewedUser.metadata.name }})
+      } catch (error) {
+        this.$message.error(`移除失败: ${error.response?.data?.message || error.message}`)
+      }
+    },
+    // 打开添加权限弹窗
+    openAddBinding(type) {
+      this.addBindingForm = {
+        type, // 'cluster' or 'workspace'
+        role: '',
+        workspace: ''
+      }
+      this.addBindingDialogVisible = true
+    },
+    // 提交添加权限
+    async submitAddBinding() {
+      try {
+        // 1. 检查 viewedUser 是否存在
+        if (!this.viewedUser || !this.viewedUser.metadata?.name) {
+          this.$message.error('用户信息未加载，请重新打开权限弹窗')
+          return
+        }
+
+        // 2. 表单验证
+        if (!this.addBindingForm.role) {
+          this.$message.error('请选择角色')
+          return
+        }
+        if (this.addBindingForm.type === 'workspace' && !this.addBindingForm.workspace) {
+          this.$message.error('请选择Workspace')
+          return
+        }
+
+        // 3. 构建 UserBinding 对象
+        const username = this.viewedUser.metadata.name // ✅ 确保 viewedUser 已赋值
+        const bindingName = this.addBindingForm.type === 'cluster'
+          ? `cluster-${this.addBindingForm.role}-${username}`
+          : `workspace-${this.addBindingForm.workspace}-${username}`
+
+        const bindingPayload = {
+          apiVersion: 'userbinding.kubeants.io/v1beta1',
+          kind: 'UserBinding',
+          metadata: { name: bindingName },
+          spec: {
+            user: username,
+            role: this.addBindingForm.role,
+            scope: {
+              kind: this.addBindingForm.type === 'cluster' ? 'Cluster' : 'Workspace',
+              name: this.addBindingForm.type === 'cluster' ? 'kubeantscluster' : this.addBindingForm.workspace
+            }
+          }
+        }
+
+        // 4. 调用 API
+        await this.$store.dispatch('dashboard/addUserBinding', bindingPayload)
+        this.$message.success('权限添加成功')
+        this.addBindingDialogVisible = false
+
+        // 5. 刷新权限列表
+        await this.viewPermissions(this.viewedUser) // ✅ 传递有效用户对象
+      } catch (error) {
+        this.$message.error(`添加失败: ${error.response?.data?.message || error.message}`)
+        console.error('完整错误信息:', error) // 确保错误被记录
       }
     }
   }
 }
 </script>
 
-<style lang="scss" scoped>
-.workspace-form-tip {
-  color: #909399;
-  font-size: 12px;
-  margin-top: 4px;
-}
-/* 新增禁用动画的CSS */
-.no-transition-tabs {
-  ::v-deep {
-    .el-tabs__content {
-      // overflow: visible; // 修复滚动条闪烁问题
-      // transition: none !important; // 禁用过渡动画
-      // animation: none !important; // 禁用动画
-      transition: opacity 2s !important;
-      animation-duration: 2s !important;
-    }
-    .el-table__body-wrapper {
-      overflow: auto; // 确保表格滚动条稳定
-    }
+  <style lang="scss" scoped>
+  .workspace-form-tip {
+    color: #909399;
+    font-size: 12px;
+    margin-top: 4px;
   }
-}
-.optimized-tabs {
-  ::v-deep {
-    /* 完全禁用动画系统 */
-    .el-tabs__content {
-      transform: none !important;
-      transition: none !important;
-      animation: none !important;
-    }
-
-    /* 优化表格渲染性能 */
-    .el-table {
-      will-change: auto;
-      backface-visibility: hidden;
-    }
-
-    /* 修复按钮闪现问题 */
-    .el-tab-pane {
-      position: relative;
-      z-index: 1;
-      display: none;
-
-      &.is-active {
-        display: block;
+  /* 新增禁用动画的CSS */
+  .no-transition-tabs {
+    ::v-deep {
+      .el-tabs__content {
+        // overflow: visible; // 修复滚动条闪烁问题
+        // transition: none !important; // 禁用过渡动画
+        // animation: none !important; // 禁用动画
+        transition: opacity 2s !important;
+        animation-duration: 2s !important;
+      }
+      .el-table__body-wrapper {
+        overflow: auto; // 确保表格滚动条稳定
       }
     }
   }
-}
-.dashboard-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-.table-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.info-box {
-  margin: 10px 0;
-  font-size: 16px;
-}
-.mt-3 {
-  margin-top: 12px;
-}
+  .optimized-tabs {
+    ::v-deep {
+      /* 完全禁用动画系统 */
+      .el-tabs__content {
+        transform: none !important;
+        transition: none !important;
+        animation: none !important;
+      }
 
-/* 使禁用状态更明显 */
-::v-deep .el-input.is-disabled .el-input__inner {
-  background-color: #f5f7fa;
-  border-color: #e4e7ed;
-  color: #606266;
-  cursor: not-allowed;
-}
+      /* 优化表格渲染性能 */
+      .el-table {
+        will-change: auto;
+        backface-visibility: hidden;
+      }
 
-.workspace-form-tip {
-  color: #909399;
-  font-size: 12px;
-  margin-top: 4px;
-}
-</style>
+      /* 修复按钮闪现问题 */
+      .el-tab-pane {
+        position: relative;
+        z-index: 1;
+        display: none;
+
+        &.is-active {
+          display: block;
+        }
+      }
+    }
+  }
+  .dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .info-box {
+    margin: 10px 0;
+    font-size: 16px;
+  }
+  .mt-3 {
+    margin-top: 12px;
+  }
+
+  /* 使禁用状态更明显 */
+  ::v-deep .el-input.is-disabled .el-input__inner {
+    background-color: #f5f7fa;
+    border-color: #e4e7ed;
+    color: #606266;
+    cursor: not-allowed;
+  }
+
+  .workspace-form-tip {
+    color: #909399;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  </style>

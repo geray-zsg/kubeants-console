@@ -71,6 +71,14 @@ export function getUserAll() {
   })
 }
 
+// 查看用户详情
+export function getUserDetail(username) {
+  return request({
+    url: `/gapi/cluster/ka/workspace/wspublic/apis/user.kubeants.io/v1beta1/users/${username}`,
+    method: 'get'
+  })
+}
+
 // 创建user
 export function createUser(payload) {
   console.log('正在发送创建user请求:', payload)
@@ -90,6 +98,14 @@ export function createUserBinding(payload) {
     data: payload
   })
 }
+// 删除 userbinding
+export function deleteUserBinding(name) {
+  return request({
+    url: `/gapi/cluster/ka/workspace/wspublic/apis/userbinding.kubeants.io/v1beta1/userbindings/${name}`,
+    method: 'delete'
+  })
+}
+
 // 获取userbinding
 export function getUserBindings(username) {
   console.log('正在发送获取userbinding请求:', username)
@@ -97,5 +113,25 @@ export function getUserBindings(username) {
     url: `/gapi/cluster/ka/workspace/wspublic/apis/userbinding.kubeants.io/v1beta1/userbindings`,
     method: 'get',
     params: { labelSelector: `kubeants.io/user=${username}` }
+  })
+}
+
+// 编辑用户（PATCH 更新）
+export function updateUser(name, patchData) {
+  return request({
+    url: `/gapi/cluster/ka/workspace/wspublic/apis/user.kubeants.io/v1beta1/users/${name}`,
+    method: 'patch',
+    headers: {
+      'Content-Type': 'application/merge-patch+json'
+    },
+    data: patchData
+  })
+}
+
+// 删除用户
+export function deleteUser(name) {
+  return request({
+    url: `/gapi/cluster/ka/workspace/wspublic/apis/user.kubeants.io/v1beta1/users/${name}`,
+    method: 'delete'
   })
 }

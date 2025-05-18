@@ -1,4 +1,7 @@
 import { getUserAll, getWorkspaces, getWorkspacesAll, createUser, createUserBinding, getUserBindings, createWorkspace, getWorkspaceDetail, updateWorkspace, deleteWorkspace } from '@/api/dashboard'
+import { updateUser as apiUpdateUser } from '@/api/dashboard'
+import { deleteUser as apiDeleteUser } from '@/api/dashboard'
+import { getUserDetail as getUserDetail, deleteUserBinding as deleteUserBinding } from '@/api/dashboard'
 
 const state = {
   workspaces: [],
@@ -145,13 +148,55 @@ const actions = {
       throw error
     }
   },
-  // 创建user
-  async createUser(_, { user }) {
-    return await createUser(user)
+
+  // 查看用户详情
+  async getUserDetail({ commit }, username) {
+    try {
+      const resp = await getUserDetail(username)
+      return resp
+    } catch (error) {
+      console.error('[Store] 获取用户详情失败:', error)
+      throw error
+    }
   },
-  // 创建userbinding
-  async createUserBinding(_, { userbinding }) {
-    return await createUserBinding(userbinding)
+  // 创建user
+  async createUserWithBinding({ dispatch }, { user, bindings }) {
+    try {
+      await createUser(user)
+      for (const binding of bindings) {
+        await createUserBinding(binding)
+      }
+      await dispatch('getUserAll') // 创建后刷新用户列表
+    } catch (error) {
+      console.error('[Store] 创建用户或绑定失败:', error)
+      throw error
+    }
+  },
+  // async createUser(_, { user }) {
+  //   return await createUser(user)
+  // },
+  // // 创建userbinding
+  // async createUserBinding(_, { userbinding }) {
+  //   return await createUserBinding(userbinding)
+  // },
+  async addUserBinding(_, binding) {
+    try {
+      return await createUserBinding(binding)
+    } catch (error) {
+      console.error('[Store] 添加用户绑定失败:', error)
+      throw error
+    }
+  },
+
+  async removeUserBinding({ dispatch }, name) {
+    try {
+      await deleteUserBinding(name)
+      // 删除后可选择是否刷新绑定列表（依赖场景）
+      return true
+    } catch (error) {
+      console.error('[Store] 删除用户绑定失败:', error)
+      throw error
+    }
   },
   // 获取userbings，用于用户权限查看
   async getUserBindings({ commit }, { username }) {
@@ -164,9 +209,26 @@ const actions = {
       console.error('[Store] 加载userbindings列表失败:', error)
       throw error
     }
+  },
+  async updateUser({ dispatch }, { name, patch }) {
+    try {
+      await apiUpdateUser(name, patch)
+      await dispatch('getUserAll') // 更新后刷新列表
+    } catch (error) {
+      console.error('[Store] 更新用户失败:', error)
+      throw error
+    }
+  },
+  async deleteUser({ dispatch }, name) {
+    try {
+      await apiDeleteUser(name)
+      await dispatch('getUserAll')
+    } catch (error) {
+      console.error('[Store] 删除用户失败:', error)
+      throw error
+    }
   }
 }
-
 const getters = {
   workspaces: state => state.workspaces,
   users: state => state.users,
