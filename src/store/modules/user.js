@@ -11,6 +11,9 @@ const getDefaultState = () => {
     email: '',
     userBindings: [], // 所有UserBinding资源
     isClusterAdmin: false, // 是否拥有集群角色
+    isClusterEditor: false,
+    isClusterViewer: false,
+    hasClusterRole: false,
     // avatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
     avatar: require('@/assets/user-avatar.gif'),
     // roles: [],
@@ -42,8 +45,28 @@ const mutations = {
   },
   SET_USER_BINDINGS(state, bindings) {
     state.userBindings = bindings
+    // 判断用户是否拥有集群角色（admin/edit/view）
+    state.hasClusterRole = bindings.some(
+      b => b.spec?.scope?.kind === 'Cluster' &&
+      ['admin', 'edit', 'view'].includes(b.spec?.role)
+    )
+
+    // 单独标记是否是集群管理员
     state.isClusterAdmin = bindings.some(
-      b => b.spec?.scope?.kind === 'Cluster' && b.spec?.role === 'admin'
+      b => b.spec?.scope?.kind === 'Cluster' &&
+      b.spec?.role === 'admin'
+    )
+
+    // 标记是否是集群编辑者
+    state.isClusterEditor = bindings.some(
+      b => b.spec?.scope?.kind === 'Cluster' &&
+      b.spec?.role === 'edit'
+    )
+
+    // 标记是否是集群查看者
+    state.isClusterViewer = bindings.some(
+      b => b.spec?.scope?.kind === 'Cluster' &&
+      b.spec?.role === 'view'
     )
   }
 }
@@ -121,6 +144,8 @@ const getters = {
   avatar: state => state.avatar,
   // roles: state => state.roles,
   isClusterAdmin: state => state.isClusterAdmin,
+  isClusterEditor: state => state.isClusterEditor,
+  isClusterViewer: state => state.isClusterViewer,
   userBindings: state => state.userBindings
 }
 

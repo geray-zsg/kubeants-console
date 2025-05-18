@@ -33,10 +33,10 @@ const actions = {
   // 从userbindings中获取用户的workspace
   async getWorkspaces({ commit, rootState }) {
     try {
-      const { name, isClusterAdmin, userBindings } = rootState.user
+      const { name, hasClusterRole, userBindings } = rootState.user
       let respData
 
-      if (isClusterAdmin) {
+      if (hasClusterRole) {
         const raw = await getWorkspacesAll()
 
         // 权限优先级从高到低
@@ -79,10 +79,11 @@ const actions = {
       throw error
     }
   },
+
   async getUserAll({ commit, rootState }) {
     try {
-      const { isClusterAdmin } = rootState.user
-      if (isClusterAdmin) {
+      const { hasClusterRole } = rootState.user
+      if (hasClusterRole) {
         const resp = await getUserAll()
         // 提取用户数组并提交
         commit('SET_USERS', resp.items.items)
