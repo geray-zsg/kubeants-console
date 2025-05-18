@@ -1,5 +1,5 @@
 // src/store/modules/user.js
-import { login, getInfo } from '@/api/user'
+import { login, getInfo, getUserBindings } from '@/api/user'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { resetRouter } from '@/router'
 // import user from 'mock/user'
@@ -9,9 +9,11 @@ const getDefaultState = () => {
     token: getToken(),
     name: '',
     email: '',
+    userBindings: [], // 所有UserBinding资源
+    isClusterAdmin: false, // 是否拥有集群角色
     // avatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
     avatar: require('@/assets/user-avatar.gif'),
-    roles: [],
+    // roles: [],
     menus: []
   }
 }
@@ -35,14 +37,14 @@ const mutations = {
   SET_AVATAR: (state, avatar) => {
     state.avatar = avatar
   },
-  // SET_ROLES: (state, roles) => {
-  //   state.roles = roles
-  // },
-  // SET_MENUS: (state, menus) => {
-  //   state.menus = menus
-  // },
   SET_WORKSPACES: (state, workspaces) => {
     state.workspaces = workspaces
+  },
+  SET_USER_BINDINGS(state, bindings) {
+    state.userBindings = bindings
+    state.isClusterAdmin = bindings.some(
+      b => b.spec?.scope?.kind === 'Cluster' && b.spec?.role === 'admin'
+    )
   }
 }
 
@@ -70,15 +72,23 @@ const actions = {
   // get user info (now uses state data directly)
   async getInfo({ commit, state }) {
     try {
-      const response = await getInfo(state.name)
+      const res = await getInfo(state.name)
 
-      const email = response.data.spec?.email || ''
-      const displayName = response.data.spec?.name || state.name
-      commit('SET_EMAIL', email) // 设置email
-      commit('SET_MENUS', displayName)
+      const email = res.data.spec?.email || ''
+      commit('SET_EMAIL', email)
+      return res
+    } catch (error) {
+      console.error('获取用户信息失败:', error)
+      throw error
+    }
+  },
 
-      console.log('用户信息', displayName, email)
-      return response
+  async getUserbindings({ commit, state }) {
+    try {
+      const res = await getUserBindings(state.name)
+      commit('SET_USER_BINDINGS', res.items || [])
+      console.log('SET_USER_BINDINGS', res.items)
+      return res
     } catch (error) {
       console.error('获取用户信息失败:', error)
       throw error
@@ -109,7 +119,9 @@ const getters = {
   username: state => state.name,
   email: state => state.email,
   avatar: state => state.avatar,
-  roles: state => state.roles
+  // roles: state => state.roles,
+  isClusterAdmin: state => state.isClusterAdmin,
+  userBindings: state => state.userBindings
 }
 
 export default {

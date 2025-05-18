@@ -185,6 +185,7 @@ export default {
           annotations['kubeants.io/description'] = this.nsForm.description
         }
 
+        // 调用方法创建
         await this.createNamespace({
           workspace: this.currentWorkspace,
           namespace: {

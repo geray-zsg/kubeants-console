@@ -115,6 +115,7 @@ export default {
           this.loading = true
           this.$store.dispatch('user/login', this.loginForm)
             .then(() => this.$store.dispatch('user/getInfo'))
+            .then(() => this.$store.dispatch('user/getUserbindings', this.loginForm.username))
             .then(() => this.$store.dispatch('dashboard/getWorkspaces')) // src/store/modules/dashboard.js 包含 getWorkspaces 的 action
             .then(() => {
               this.$router.push({ path: this.redirect || '/' })

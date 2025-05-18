@@ -1,6 +1,5 @@
 // src/api/user.js
 import request from '@/utils/request'
-// import user from 'mock/user'
 
 export function login(data) {
   return request({
@@ -36,5 +35,23 @@ export function logout() {
   return request({
     url: '/vue-admin-template/user/logout',
     method: 'post'
+  })
+}
+
+// 获取userbinding
+export function getUserBindings(username) {
+  if (!username) {
+    console.log('getUserBindings接口为传递用户数据从本地存储获取用户名')
+    username = localStorage.getItem('username')
+  }
+  if (!username) {
+    return Promise.reject('未找到用户信息')
+  }
+
+  console.log('username------------>', username)
+  return request({
+    url: `/gapi/cluster/test/workspace/ws1/apis/userbinding.kubeants.io/v1beta1/userbindings`,
+    method: 'get',
+    params: { labelSelector: `kubeants.io/user=${username}` }
   })
 }

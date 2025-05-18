@@ -1,4 +1,4 @@
-import { getNamespaces, getUserBindings, getRoleTemplates, createNamespace } from '@/api/workspace'
+import { getNamespaces, getRoleTemplates, createNamespace } from '@/api/workspace'
 
 const state = {
   namespaces: [],
@@ -33,10 +33,10 @@ const actions = {
     const res = await getNamespaces(workspaceName)
     commit('SET_NAMESPACES', res)
   },
-  async fetchUserBindings({ commit }, workspaceName) {
-    const res = await getUserBindings(workspaceName)
-    commit('SET_USER_BINDINGS', res)
-  },
+  // async fetchUserBindings({ commit }, workspaceName) {
+  //   const res = await getUserBindings(workspaceName)
+  //   commit('SET_USER_BINDINGS', res)
+  // },
   async fetchRoleTemplates({ commit }) {
     const res = await getRoleTemplates()
     commit('SET_ROLE_TEMPLATES', res)

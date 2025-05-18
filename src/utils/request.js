@@ -27,7 +27,7 @@ service.interceptors.request.use(
   },
   error => {
     // do something with request error
-    console.log("请求拦截异常",error) // for debug
+    console.log('请求拦截异常', error) // for debug
     return Promise.reject(error)
   }
 )
@@ -41,6 +41,11 @@ service.interceptors.response.use(
   },
   // 错误响应处理（HTTP 状态码非 2xx）
   error => {
+    // 添加跳过判断
+    if (error.config?.skipGlobalError) {
+      console.log('跳过全局错误提示')
+      return Promise.reject(error)
+    }
     const { response } = error
 
     // 处理有响应的错误（如 4xx、5xx）
@@ -48,6 +53,16 @@ service.interceptors.response.use(
       const { status, data } = response
       const message = data.message || error.message
 
+      console.log('request.js错误处理', message)
+      // 新增409状态码处理
+      if (status === 409) {
+        Message({
+          message: message || '资源已存在',
+          type: 'warning',
+          duration: 5 * 1000
+        })
+        return Promise.reject(error)
+      }
       // 示例：401 表示未授权，跳转到登录页
       if (status === 401) {
         MessageBox.confirm('登录已过期，请重新登录', '确认登出', {
