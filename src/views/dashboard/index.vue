@@ -27,7 +27,15 @@
         <div v-else>
           <el-table :data="filteredWorkspaces" border style="width: 100%">
             <el-table-column label="Workspace 名称">
-              <template v-slot="{ row }">{{ row.name || '未知空间' }}</template>
+              <template v-slot="{ row }">
+                <!-- {{ row.name || '未知空间' }} -->
+                <span
+                  class="clickable-name"
+                  @click="goToWorkspace(row)"
+                >
+                  {{ row.name || '未知空间' }}
+                </span>
+              </template>
             </el-table-column>
             <el-table-column label="角色权限">
               <template v-slot="{ row }">{{ row.role || '无角色' }}</template>
@@ -562,6 +570,7 @@ export default {
     }
   },
   methods: {
+    // 点击workspace名称跳转到workspace页面
     goToWorkspace(row) {
       if (row.name) {
         this.$router.push({ name: 'workspace', params: { workspaceName: row.name }})
@@ -1030,7 +1039,8 @@ export default {
     }
   }
   .dashboard-container {
-    max-width: 1200px;
+    // max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 20px;
   }
@@ -1060,4 +1070,11 @@ export default {
     font-size: 12px;
     margin-top: 4px;
   }
+
+  // 给 <span> 添加样式让它看起来像个链接 点击workspace名称跳转到workspace页面
+  .clickable-name {
+  color: #409EFF;
+  cursor: pointer;
+  text-decoration: underline;
+}
   </style>

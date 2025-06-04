@@ -1,56 +1,54 @@
-import { getNamespaces, getRoleTemplates, createNamespace } from '@/api/workspace'
+import {
+  listNamespaces,
+  createNamespace,
+  deleteNamespace,
+  listUserBindings,
+  createUserBinding,
+  deleteUserBinding
+} from '@/api/workspace'
 
 const state = {
   namespaces: [],
-  userBindings: [],
-  roleTemplates: [] // 新增角色模板存储
+  userBindings: []
 }
 
 const mutations = {
   SET_NAMESPACES(state, data) {
-    state.namespaces = data.items.map(ns => ({
-      name: ns.metadata.name,
-      labels: ns.metadata.labels || {}
-    }))
+    state.namespaces = data
   },
   SET_USER_BINDINGS(state, data) {
-    state.userBindings = data.items.map(ub => ({
-      user: ub.spec.user,
-      role: ub.spec.role,
-      scope: ub.spec.scope
-    }))
-  },
-  SET_ROLE_TEMPLATES(state, data) {
-    state.roleTemplates = data.items.map(rt => ({
-      name: rt.metadata.name,
-      description: rt.spec.description
-    }))
+    state.userBindings = data
   }
 }
 
 const actions = {
-  async fetchNamespaces({ commit }, workspaceName) {
-    const res = await getNamespaces(workspaceName)
-    commit('SET_NAMESPACES', res)
+  async getNamespaces({ commit }, workspaceName) {
+    const res = await listNamespaces(workspaceName)
+    console.log('前端传递的workspaceName：', workspaceName, '获取的ns数据res.items', res.items)
+    commit('SET_NAMESPACES', res.items || [])
   },
-  // async fetchUserBindings({ commit }, workspaceName) {
-  //   const res = await getUserBindings(workspaceName)
-  //   commit('SET_USER_BINDINGS', res)
-  // },
-  async fetchRoleTemplates({ commit }) {
-    const res = await getRoleTemplates()
-    commit('SET_ROLE_TEMPLATES', res)
+  async getUserBindings({ commit }, workspaceName) {
+    const res = await listUserBindings(workspaceName)
+    console.log('前端传递的workspaceName：', workspaceName, '获取的usb数据res.items', res.items)
+    commit('SET_USER_BINDINGS', res.items || [])
   },
-  // 新增：创建 Namespace
-  async createNamespace(_, { workspace, namespace }) {
-    return await createNamespace(workspace, namespace)
+  async addNamespace(_, { workspaceName, data }) {
+    return createNamespace(workspaceName, data)
+  },
+  async removeNamespace(_, { workspaceName, name }) {
+    return deleteNamespace(workspaceName, name)
+  },
+  async addUserBinding(_, { workspaceName, data }) {
+    return createUserBinding(workspaceName, data)
+  },
+  async removeUserBinding(_, { workspaceName, name }) {
+    return deleteUserBinding(workspaceName, name)
   }
 }
 
 const getters = {
   namespaces: state => state.namespaces,
-  userBindings: state => state.userBindings,
-  roleTemplates: state => state.roleTemplates
+  userBindings: state => state.userBindings
 }
 
 export default {

@@ -11,7 +11,7 @@ const state = {
 
 const mutations = {
   SET_WORKSPACES(state, data) {
-    console.log('原始数据:', data.items)
+    // console.log('原始数据:', data.items)
     // 过滤并格式化有效工作空间
     state.workspaces = data.items
       .filter(item => item.spec?.scope?.kind === 'Workspace')
