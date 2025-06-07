@@ -16,9 +16,9 @@ export function createNamespace(workspaceName, data) {
   })
 }
 
-export function deleteNamespace(workspaceName, name) {
+export function deleteNamespace(name) {
   return request({
-    url: `/gapi/cluster/ka/workspace/${workspaceName}/api/v1/namespaces/${name}`,
+    url: `/gapi/cluster/ka/api/v1/namespaces/${name}`,
     method: 'delete'
   })
 }
@@ -43,5 +43,12 @@ export function deleteUserBinding(workspaceName, name) {
   return request({
     url: `/gapi/cluster/ka/workspace/${workspaceName}/apis/userbinding.kubeants.io/v1beta1/userbindings/${name}`,
     method: 'delete'
+  })
+}
+
+export function userListAll() {
+  return request({
+    url: `/gapi/cluster/ka/workspace/wspublic/apis/user.kubeants.io/v1beta1/users`,
+    method: 'get'
   })
 }

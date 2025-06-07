@@ -161,18 +161,18 @@
           >新建用户</el-button>
         </div>
         <el-table :data="filteredUserList" border>
-          <el-table-column prop="metadata.name" label="用户名" width="120" />
+          <el-table-column prop="metadata.name" label="用户名" />
           <el-table-column prop="spec.email" label="邮箱" />
           <el-table-column prop="spec.phone" label="电话" />
-          <el-table-column prop="spec.state" label="状态" width="80" />
-          <el-table-column label="操作" width="280">
+          <el-table-column prop="spec.state" label="状态" />
+          <el-table-column label="操作">
             <template v-slot="{ row }">
-              <div style="display: inline-flex; gap: 4px; flex-wrap: nowrap">
-                <el-button size="mini" @click.stop="viewUser(row)">查看</el-button>
-                <el-button v-if="(isClusterAdmin || isClusterEditor) && ['admin', 'edit'].includes(row.role)" size="mini" type="primary" @click.stop="editUser(row)">编辑</el-button>
-                <el-button v-if="(isClusterAdmin || isClusterEditor) && ['admin', 'edit'].includes(row.role)" size="mini" @click.stop="viewPermissions(row)">权限</el-button>
-                <el-button v-if="(isClusterAdmin || isClusterEditor) && ['admin', 'edit'].includes(row.role)" size="mini" type="danger" @click.stop="deleteUser(row)">删除</el-button>
-              </div>
+              <!-- <div style="display: inline-flex; gap: 4px; flex-wrap: nowrap"> -->
+              <el-button size="mini" @click.stop="viewUser(row)">查看</el-button>
+              <el-button v-if="(isClusterAdmin || isClusterEditor)" size="mini" type="primary" @click.stop="editUser(row)">编辑</el-button>
+              <el-button v-if="(isClusterAdmin || isClusterEditor)" size="mini" @click.stop="viewPermissions(row)">权限</el-button>
+              <el-button v-if="(isClusterAdmin || isClusterEditor)" size="mini" type="danger" @click.stop="deleteUser(row)">删除</el-button>
+              <!-- </div> -->
             </template>
           </el-table-column>
         </el-table>
@@ -506,40 +506,8 @@ export default {
     }
   },
   computed: {
-    ...mapGetters('user', ['username', 'email', 'userBindings']),
+    ...mapGetters('user', ['username', 'email', 'userBindings', 'isClusterAdmin', 'isClusterEditor', 'isClusterViewer', 'hasClusterRole']),
     ...mapGetters('dashboard', ['workspaces', 'users']),
-
-    // 判断用户是否拥有集群角色（admin/edit/view）
-    hasClusterRole() {
-      return this.userBindings.some(b =>
-      b.spec?.scope?.kind === 'Cluster' &&
-      ['admin', 'edit', 'view'].includes(b.spec?.role)
-      )
-    },
-
-    // 判断用户是否是集群管理员
-    isClusterAdmin() {
-      return this.userBindings.some(b =>
-      b.spec?.scope?.kind === 'Cluster' &&
-      b.spec?.role === 'admin'
-      )
-    },
-
-    // 判断用户是否是集群编辑者
-    isClusterEditor() {
-      return this.userBindings.some(b =>
-      b.spec?.scope?.kind === 'Cluster' &&
-      b.spec?.role === 'edit'
-      )
-    },
-
-    // 判断用户是否是集群查看者
-    isClusterViewer() {
-      return this.userBindings.some(b =>
-      b.spec?.scope?.kind === 'Cluster' &&
-      b.spec?.role === 'view'
-      )
-    },
 
     filteredWorkspaces() {
       return this.workspaces.filter(ws =>

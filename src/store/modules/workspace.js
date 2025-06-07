@@ -4,12 +4,14 @@ import {
   deleteNamespace,
   listUserBindings,
   createUserBinding,
-  deleteUserBinding
+  deleteUserBinding,
+  userListAll
 } from '@/api/workspace'
 
 const state = {
   namespaces: [],
-  userBindings: []
+  userBindings: [],
+  users: []
 }
 
 const mutations = {
@@ -18,6 +20,9 @@ const mutations = {
   },
   SET_USER_BINDINGS(state, data) {
     state.userBindings = data
+  },
+  SET_USERS(state, data) {
+    state.users = data
   }
 }
 
@@ -35,20 +40,27 @@ const actions = {
   async addNamespace(_, { workspaceName, data }) {
     return createNamespace(workspaceName, data)
   },
-  async removeNamespace(_, { workspaceName, name }) {
-    return deleteNamespace(workspaceName, name)
+  async deleteNamespace(_, { name }) {
+    return deleteNamespace(name)
   },
   async addUserBinding(_, { workspaceName, data }) {
     return createUserBinding(workspaceName, data)
   },
   async removeUserBinding(_, { workspaceName, name }) {
+    console.log('移除成功,收到的信息是', workspaceName, name)
     return deleteUserBinding(workspaceName, name)
+  },
+
+  // 邀请用户时展示的用户列表
+  async userListAll() {
+    return userListAll()
   }
 }
 
 const getters = {
   namespaces: state => state.namespaces,
-  userBindings: state => state.userBindings
+  userBindings: state => state.userBindings,
+  users: state => state.users
 }
 
 export default {

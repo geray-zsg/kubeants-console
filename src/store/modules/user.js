@@ -68,6 +68,13 @@ const mutations = {
       b => b.spec?.scope?.kind === 'Cluster' &&
       b.spec?.role === 'view'
     )
+
+    console.group('用户权限日志')
+    console.log(`用户名: ${state.name}`)
+    console.log(`拥有集群角色: ${state.hasClusterRole ? '是' : '否'}`)
+    console.log(`拥有集群admin角色: ${state.isClusterAdmin ? '是' : '否'}`)
+    console.log(`拥有集群edit角色: ${state.isClusterEditor ? '是' : '否'}`)
+    console.log(`拥有集群view角色: ${state.isClusterViewer ? '是' : '否'}`)
   }
 }
 
@@ -143,6 +150,7 @@ const getters = {
   email: state => state.email,
   avatar: state => state.avatar,
   // roles: state => state.roles,
+  hasClusterRole: state => state.hasClusterRole,
   isClusterAdmin: state => state.isClusterAdmin,
   isClusterEditor: state => state.isClusterEditor,
   isClusterViewer: state => state.isClusterViewer,
