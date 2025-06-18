@@ -18,7 +18,7 @@
             type="primary"
             icon="el-icon-plus"
             @click="createWorkspace"
-          >新建 Workspace</el-button>
+          >新建工作空间</el-button>
         </div>
 
         <div v-if="filteredWorkspaces.length === 0">

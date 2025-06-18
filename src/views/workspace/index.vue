@@ -17,9 +17,19 @@
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="Namespace 列表" name="namespaces">
-        <el-button type="primary" icon="el-icon-plus" style="margin-bottom: 10px;" @click="showNsDialog = true"> 创建namespace</el-button>
+        <el-button type="primary" icon="el-icon-plus" style="margin-bottom: 10px;" @click="showNsDialog = true"> 新建命名空间</el-button>
         <el-table v-if="!loading" :data="namespaces" border style="width: 100%">
-          <el-table-column prop="metadata.name" label="名称" />
+          <el-table-column prop="metadata.name" label="名称">
+            <template v-slot="{ row }">
+              <el-link
+                :underline="false"
+                type="primary"
+                @click="$router.push({ name: 'NamespacePage', params: { workspaceName: currentWorkspace, namespaceName: row.metadata.name } })"
+              >
+                {{ row.metadata.name }}
+              </el-link>
+            </template>
+          </el-table-column>
           <el-table-column label="标签">
             <template v-slot="{ row }">
               <el-tag
@@ -39,7 +49,7 @@
           </el-table-column>
           <el-table-column label="操作">
             <template v-slot="{ row }">
-              <el-button size="mini" @click.stop="deleteNamespace(row)">删除</el-button>
+              <el-button size="mini" type="danger" @click.stop="deleteNamespace(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -71,7 +81,7 @@
           </el-table-column>
           <el-table-column label="操作">
             <template v-slot="{ row }">
-              <el-button size="mini" @click.stop="removeUserBinding(row)">移除成员</el-button>
+              <el-button size="mini" type="danger" @click.stop="removeUserBinding(row)">移除成员</el-button>
             </template>
           </el-table-column>
         </el-table>

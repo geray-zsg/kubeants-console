@@ -8,6 +8,7 @@ import tagsView from './modules/tagsView'
 import permission from './modules/permission'
 import dashboard from './modules/dashboard'
 import workspace from './modules/workspace'
+import ns from './modules/namespace'
 
 Vue.use(Vuex)
 
@@ -19,7 +20,8 @@ const store = new Vuex.Store({
     tagsView,
     permission,
     dashboard,
-    workspace
+    workspace,
+    ns
   },
   getters
 })

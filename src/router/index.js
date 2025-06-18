@@ -51,31 +51,9 @@ export const constantRoutes = [
       path: 'dashboard',
       name: 'Dashboard',
       component: () => import('@/views/dashboard/index'),
-      meta: { title: '首页', icon: 'dashboard', affix: true }
+      meta: { title: '蚁挚首页', icon: 'dashboard', affix: true }
     }]
   },
-
-  // {
-  //   path: '/workspace',
-  //   component: Layout,
-  //   redirect: '/workspace/table',
-  //   name: 'workspace',
-  //   meta: { title: 'workspace', icon: 'el-icon-s-help' },
-  //   children: [
-  //     {
-  //       path: 'namespace',
-  //       name: 'namespace',
-  //       component: () => import('@/views/workspace/index'),
-  //       meta: { title: 'namespace', icon: 'table' }
-  //     },
-  //     {
-  //       path: 'user',
-  //       name: 'user',
-  //       component: () => import('@/views/workspace/index'),
-  //       meta: { title: 'user', icon: 'tree' }
-  //     }
-  //   ]
-  // },
 
   {
     path: '/workspace',
@@ -85,7 +63,20 @@ export const constantRoutes = [
         path: ':workspaceName', // 动态参数
         name: 'workspace', // 注意：这里是 'workspace'
         component: () => import('@/views/workspace/index.vue'),
-        meta: { title: 'Workspace', icon: 'tree' }
+        meta: { title: '工作空间', icon: 'tree' }
+      }
+    ]
+  },
+
+  {
+    path: '/namespace',
+    component: Layout,
+    children: [
+      {
+        path: '/namespace/:workspaceName/:namespaceName', // 动态参数
+        name: 'NamespacePage', // 注意：这里是 'workspace'
+        component: () => import('@/views/namespace/index.vue'),
+        meta: { title: '命名空间', icon: 'tree' }
       }
     ]
   },
