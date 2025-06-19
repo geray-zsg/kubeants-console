@@ -9,6 +9,7 @@ import permission from './modules/permission'
 import dashboard from './modules/dashboard'
 import workspace from './modules/workspace'
 import ns from './modules/namespace'
+import configmap from './modules/configmap'
 
 Vue.use(Vuex)
 
@@ -21,7 +22,8 @@ const store = new Vuex.Store({
     permission,
     dashboard,
     workspace,
-    ns
+    ns,
+    configmap
   },
   getters
 })

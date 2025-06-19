@@ -125,7 +125,7 @@ export const constantRoutes = [
       }
     ]
   },
-  /*
+
   {
     path: '/services',
     component: Layout,
@@ -137,33 +137,33 @@ export const constantRoutes = [
     // ConfigMaps（配置管理）
     // Secrets（敏感信息管理）
     children: [
+      // {
+      //   path: 'table',
+      //   name: 'Table',
+      //   component: () => import('@/views/tree/index'),
+      //   meta: { title: '应用服务', icon: 'table' }
+      // },
+      // {
+      //   path: 'ingress',
+      //   name: 'Tree',
+      //   component: () => import('@/views/ingress/index'),
+      //   meta: { title: '应用路由', icon: 'tree' }
+      // },
       {
-        path: 'table',
-        name: 'Table',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '服务', icon: 'table' }
+        path: 'configmap',
+        name: 'configmap',
+        component: () => import('@/views/configmap/index'),
+        meta: { title: '配置映射', icon: 'el-icon-s-order' }
       },
       {
-        path: 'tree',
-        name: 'Tree',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '路由', icon: 'tree' }
-      },
-      {
-        path: 'table',
-        name: 'Table',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '配置映射', icon: 'table' }
-      },
-      {
-        path: 'tree',
-        name: 'Tree',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '保密字典', icon: 'tree' }
+        path: 'secret',
+        name: 'secret',
+        component: () => import('@/views/secret/index'),
+        meta: { title: '保密字典', icon: 'el-icon-s-order' }
       }
     ]
   },
-
+  /*
   {
     path: '/storages',
     component: Layout,

@@ -1,7 +1,7 @@
 <template>
   <div class="namespace-page">
     <div class="filters">
-      <span class="filter-label">业务空间：</span>
+      <span class="filter-label">工作空间：</span>
       <el-select v-model="selectedWorkspace" placeholder="选择 Workspace" @change="onWorkspaceChange">
         <el-option v-for="ws in workspaces" :key="ws.name" :label="ws.name" :value="ws.name" />
       </el-select>
