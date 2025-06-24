@@ -1,0 +1,476 @@
+[
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fcredit.yutong.cmft%2Frule%2Fbs%2Frule",
+"appType": "basicProSup"
+},
+{
+"displayName": "金科内容管理系统",
+"appId": "51d06bbe-5296-4f1f-bb6d-1dc27e4c5e10",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=h9tg9aqqayt22hes8crga",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fcms.pd.cmft",
+"appType": "basicProSup"
+},
+{
+"displayName": "XDR平台",
+"appId": "bb72c16e-c396-40be-96dc-ec85f8b30db0",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=6fgpfukrisd8iteby2fgq",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fxdr.sec.cmft%2Fsso%2F_thirdLogin",
+"appType": "otherProSup"
+},
+{
+"displayName": "容器云平台",
+"appId": "3a60c699-1d1d-49d4-b3a8-de806d89cdc6",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=mkex20vyslcl1gpuqxeecq",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fks.cloud.cmft%3A30880%2Foauth%2Fredirect%2Fcas",
+"appType": "basicProSup"
+},
+{
+"displayName": "金融科技大数据隐私计算实验平台项目",
+"appId": "d99a849f-157e-4fd3-bb1b-8d7fc24ea9b9",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=eb5tjykkqjwzpv6b2urg3g",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2FPrivacycomputing.JKBigData.cmft%2Fuser%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "支付场景应用",
+"appId": "7502fbce-54a4-4d45-9319-d4c00743c255",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=sgz1a0qjrwmhj9zzbbjofg",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fmanager.living.pay%2Fliving-manager-frontend",
+"appType": "basicProSup"
+},
+{
+"displayName": "金科研发云协作平台",
+"appId": "ad305d5c-ce43-4675-8a74-ca56b573b862",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=d6bpktrt92kahvqkqlhaq",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Ffile.devcloud.cmft%2Fcertchecker",
+"appType": "basicProSup"
+},
+{
+"displayName": "国密平台SSO接入",
+"appId": "eedd729b-282b-4193-a0c6-a59e821af7ef",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=unuhnfbur7ecqajeeyyk4a",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fyljksimgmcon.sec.cmft%3A9028%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "国密平台SSO接入",
+"appId": "aac31c04-372c-47d8-9dc2-49f2ec123231",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=120fwajsbchj8krsykzxg",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fylzfgmcon.sec.pay%3A9028%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "国密平台SSO接入",
+"appId": "1f43310e-da6f-4862-96d9-497565c2b3ad",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=l72kkgtztq2okp2xnul5qa",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fxpqjkgmsimcon.sec.cmft%3A9028%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "数智采购",
+"appId": "4ee1171b-22c1-4737-afc8-a59050e8dc62",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=av1kwunsvwe9lsudnoow",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fb2bjoy.10086.cn%2Foscpadm%2Fhome%2FloginByItWork.do",
+"appType": "basicProSup"
+},
+{
+"displayName": "科技创新管理模块研发（2023-2024）",
+"appId": "297f11af-189d-42c4-9704-e6dd8df2ea86",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=jwkycecqpyywbnhq5rnww",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fkc.kygl.cmft%2Fkjcx%2Fst%2Fcallback%2F",
+"appType": "basicProSup"
+},
+{
+"displayName": "研发合作服务管理模块研发（2023-2024）",
+"appId": "8dab6c39-f5d5-4014-bdf6-4d9b8c917b89",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=pauxinyfr3yvjpgilcd4ow",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fyf.kygl.cmft%2Fyfhz%2Fst%2Fcallback%2F",
+"appType": "basicProSup"
+},
+{
+"displayName": "金科研发云测试平台",
+"appId": "f1e8fe92-2645-4b8d-961f-ac1e10ab4efb",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=oksqtjvaqcypld3cea0ibg",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fall.qa.cmft%2Fapi%2Fpaas%2Fusers%2Fv1%2Fcas%2Fcallback",
+"appType": "basicProSup"
+},
+{
+"displayName": "应用同城双活管控平台",
+"appId": "d5d885a6-d347-408f-8857-3d619537f2fa",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=txkbw3hriu5pnph6ada",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fmanage.dacp.cmft%2Fstrategy-admin-center-api%2Fv2%2Flogin%2F4a%2FcasLogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "用户生命周期平台",
+"appId": "7c5f41de-f0b3-45d0-8c76-854da6fd5282",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=zmlp3obwrw6tuhuz6pkk4w",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fuserlife-web.bigdata.cmft%3A80%2Fapi%2Fsso%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "网络安全态势感知平台",
+"appId": "45fb60c7-d708-48a8-b6b0-8cae75215bea",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=vkp0apr2tuimxsyluxrs8a",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2F10.28.52.33%3A30443%2F%23%2Fsso%2F%2F%3Fsystem%3Dsec%26isMenu%3Dtrue",
+"appType": "basicProSup"
+},
+{
+"displayName": "AI应用研发平台",
+"appId": "79e41a61-0ecd-4c2d-bce8-dcb7037b4c66",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=iwamqlzgsmuyclme0djw",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fmlops.ai.cmft%2Fwaver%2Fprovider%2Fzyjk%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "和包智慧食堂",
+"appId": "7d0eb5c6-80ec-4f4d-9b76-47fb2c632995",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=ezocjjppsecftgupoibq",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fst.hbzhst.cmft%2Fmgmt%2Findex.html%23%2Fsso-login%3FauthType%3Dauth-4a-cmft",
+"appType": "basicProSup"
+},
+{
+"displayName": "海豚调度",
+"appId": "bf08eefc-a896-45c1-9ee5-167f84e68f79",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=ea9bvyboregqxzsjpmqeq",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fdolphinscheduler-yl.paycenter.pay",
+"appType": "basicProSup"
+},
+{
+"displayName": "海豚调度",
+"appId": "31587fbe-d799-429a-9636-934f489f0b1b",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=u6bsn2phqc6wu9qcdvtfmg",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fdolphinscheduler-xpq.paycenter.pay",
+"appType": "basicProSup"
+},
+{
+"displayName": "支付数据平台",
+"appId": "bffa0bb1-4bcb-4309-b32a-054c51cf0fc7",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=smoewc6qsmgj9vezno4w",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=http%3A%2F%2Fwww.dc.pay%2Fdc-manager%2F%23%2Flogin",
+"appType": "basicProSup"
+},
+{
+"displayName": "支付运管后台管理系统",
+"appId": "3c6fe162-0b17-447f-b0a2-691736c62cfc",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=ryvzvtbrqcazcmedvjdl1w",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fpayfamily.cmpayomsys.pay%2Fmanage",
+"appType": "basicProSup"
+},
+{
+"displayName": "支付运管子系统",
+"appId": "93d473ae-32c1-4110-a3b7-180b067a6d04",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=evu95awhswyoixfg7d8obg",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fpayfamily.cmpayomsys.pay%2Fmerc%2Fmerc-manager",
+"appType": "basicProSup"
+},
+{
+"displayName": "工单流子系统",
+"appId": "544127b5-6b25-45c8-a1c5-1e6d554ce5cf",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=pvoipyqb9lwgkldmug",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fpayfamily.cmpayomsys.pay%2Fwork-order",
+"appType": "basicProSup"
+},
+{
+"displayName": "资产安全管理平台",
+"appId": "b2b21d5a-35f5-46ad-aadb-0acf0ecb912c",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=tplebnwtbuicvl9ptbg",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2F10.28.52.18%3A443%2F%23%2FdirectLogin%3Ftenant%3DSG202403300001",
+"appType": "basicProSup"
+},
+{
+"displayName": "漏洞管理平台",
+"appId": "9731a890-5e4a-475e-9fba-1b37589ddf85",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=kji75zwit82xszvnyhnlxa",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "http://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2F10.181.0.17%2Fsso%2Fsso_login",
+"appType": "otherProSup"
+},
+{
+"displayName": "代码仓库",
+"appId": "ca1727d7-2115-46ed-8b08-98d18b1964bb",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=uhafdt5pseabxlrjkmlcq",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "OIDC",
+"spHomePageUrl": "https://auth.4a.cmft/auth/oauth2/authorize?client_id=NWQ1YjEyMjVhYTkwNGM0MzllM2NhMDIwYWM0MDFjODg&response_type=code&redirect_uri=https%3A%2F%2Fgitlab.devops.cmft&state=cf977135-7cc3-4196-aa1b-9e92eaa7357a",
+"appType": "basicProSup"
+},
+{
+"displayName": "代码仓库（准生产环境）",
+"appId": "af3eb222-5313-4681-9f2f-8045ba58d6dc",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=59w7oaofr5ujn5p3pdlha",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "OIDC",
+"spHomePageUrl": "https://auth.4a.cmft/auth/oauth2/authorize?client_id=M2MwY2E4NDdjODQzNDhiMGFiZDA1Zjk5MjZjY2E4NjQ&response_type=code&redirect_uri=http%3A%2F%2F10.182.17.50%2Fusers%2Fsign_in&state=33b1f44c-6478-4f9a-958e-4bf4aaf27261",
+"appType": "basicProSup"
+},
+{
+"displayName": "资产安全管理平台",
+"appId": "c9c38970-49a4-4ef0-b619-7ceabf660d09",
+"url": "https://auth.4a.cmft/auth/sso/ssoLogin?service=w6hvbgqzu393ulnbwcqw",
+"enabled": true,
+"accountNameList": [
+    {
+        "displayName": "T000011628",
+        "accountName": "T000011628",
+        "subjectId": "bbd91eb5-8406-4878-a71f-c88634a3a010"
+    }
+],
+"ssoEntranceType": "CAS",
+"spHomePageUrl": "https://auth.4a.cmft/auth/cas/login?service=https%3A%2F%2Fzg.sec.cmft%2F%23%2FdirectLogin%3Ftenant%3DSG202403300001",
+"appType": "otherProSup"
+}
+]

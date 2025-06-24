@@ -2,6 +2,7 @@ import {
   getConfigmap,
   getConfigmapDetail,
   createConfigmap,
+  updateConfigmap,
   deleteConfigmap
 } from '@/api/configmap'
 
@@ -28,6 +29,9 @@ const actions = {
   },
   async createConfigmap(_, { wsName, nsName, configmap }) {
     return createConfigmap(wsName, nsName, configmap)
+  },
+  async updateConfigmap(_, { wsName, nsName, cmName, configmap }) {
+    return updateConfigmap(wsName, nsName, cmName, configmap)
   },
   async deleteConfigmap(_, { wsName, nsName, cmName }) {
     return deleteConfigmap(wsName, nsName, cmName)

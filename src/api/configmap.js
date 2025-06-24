@@ -22,10 +22,11 @@ export function createConfigmap(wsName, nsName, payload) {
   })
 }
 
-export function updateConfigmap(wsName, nsName, data) {
+export function updateConfigmap(wsName, nsName, cmName, payload) {
   return request({
-    url: `/gapi/cluster/ka/workspace/${wsName}/api/v1/namespaces/${nsName}/configmaps`,
-    method: 'get'
+    url: `/gapi/cluster/ka/workspace/${wsName}/api/v1/namespaces/${nsName}/configmaps/${cmName}`,
+    method: 'put',
+    data: payload
   })
 }
 

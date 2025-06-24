@@ -15,6 +15,8 @@ const name = defaultSettings.title || 'vue Admin Template' // page title
 // port = 9528 npm run dev OR npm run dev --port = 9528
 const port = process.env.port || process.env.npm_config_port || 9528 // dev port
 
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin')
+
 // All configuration item explanations can be find in https://cli.vuejs.org/config/
 module.exports = {
   /**
@@ -51,6 +53,10 @@ module.exports = {
   chainWebpack(config) {
     // it can improve the speed of the first screen, it is recommended to turn on preload
     config.plugin('preload').tap(() => [
+      new MonacoWebpackPlugin({
+        languages: ['yaml', 'json'],
+        filename: 'static/js/[name].worker.js'
+      }),
       {
         rel: 'preload',
         // to ignore runtime.js
@@ -119,5 +125,7 @@ module.exports = {
           config.optimization.runtimeChunk('single')
         }
       )
-  }
+  },
+  // transpileDependencies: ['monaco-editor']
+  
 }
