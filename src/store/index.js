@@ -10,6 +10,7 @@ import dashboard from './modules/dashboard'
 import workspace from './modules/workspace'
 import ns from './modules/namespace'
 import configmap from './modules/configmap'
+import secrets from './modules/secret'
 
 Vue.use(Vuex)
 
@@ -23,7 +24,8 @@ const store = new Vuex.Store({
     dashboard,
     workspace,
     ns,
-    configmap
+    configmap,
+    secrets
   },
   getters
 })

@@ -20,13 +20,13 @@
       />
 
       <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
-        创建 ConfigMap
+        创建配置字段
       </el-button>
     </div>
 
     <!-- ConfigMap 表格 -->
     <el-table :data="filteredConfigmaps" border style="width: 100%">
-      <el-table-column prop="metadata.name" label="名称" width="200" />
+      <el-table-column prop="metadata.name" label="名称" width="300" />
       <el-table-column label="字段名列表">
         <template v-slot="{ row }">
           <el-tag
@@ -40,23 +40,23 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="metadata.namespace" label="命名空间" width="160" />
-      <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
+      <el-table-column prop="metadata.namespace" label="命名空间" width="300" />
+      <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="200">
         <template v-slot="{ row }">
           {{ formatDate(row.metadata.creationTimestamp) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="140">
+      <el-table-column label="操作">
         <template v-slot="{ row }">
-          <el-button type="text" size="small" :disabled="!selectedWorkspace || !selectedNamespace" @click="handleView(row)">详情</el-button>
-          <el-button type="text" size="small" @click="handleEdit(row)">修改</el-button>
-          <el-button type="text" size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button size="small" :disabled="!selectedWorkspace || !selectedNamespace" @click="handleView(row)">详情</el-button>
+          <el-button type="primary" size="small" @click="handleEdit(row)">修改</el-button>
+          <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <!-- YAML 详情对话框 -->
-    <el-dialog :visible.sync="showYamlDialog" title="ConfigMap YAML 详情" width="70%" @opened="refreshMonacoEditor">
+    <el-dialog :visible.sync="showYamlDialog" title="配置字典详情" width="70%" @opened="refreshMonacoEditor">
       <div style="height: 500px; border: 1px solid #dcdfe6; border-radius: 4px">
         <monaco-editor
           ref="viewEditor"
