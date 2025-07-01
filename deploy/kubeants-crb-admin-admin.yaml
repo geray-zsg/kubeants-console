@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    kubeants.io/managed-by: userbinding
+    kubeants.io/user: zhushougui
+    kubeants.io/userbinding: cluster-kubeants-admin-zhushougui
+  name: userbinding-cluster-kubeants-admin-zhushougui
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeants-admin
+subjects:
+- kind: ServiceAccount
+  name: user-zhushougui
+  namespace: kubeants-system

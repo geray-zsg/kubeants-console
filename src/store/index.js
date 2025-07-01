@@ -11,6 +11,8 @@ import workspace from './modules/workspace'
 import ns from './modules/namespace'
 import configmap from './modules/configmap'
 import secrets from './modules/secret'
+import storageclass from './modules/storageclass'
+import persistentvolumes from './modules/persistentvolumes'
 
 Vue.use(Vuex)
 
@@ -25,7 +27,9 @@ const store = new Vuex.Store({
     workspace,
     ns,
     configmap,
-    secrets
+    secrets,
+    storageclass,
+    persistentvolumes
   },
   getters
 })

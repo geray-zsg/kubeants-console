@@ -20,7 +20,7 @@
       />
 
       <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
-        创建配置字段
+        创建配置字典
       </el-button>
     </div>
 
@@ -69,7 +69,12 @@
     </el-dialog>
 
     <!-- 创建 ConfigMap 对话框 -->
-    <el-dialog title="创建 ConfigMap" :visible.sync="showCreateDialog" width="70%" @opened="onCreateDialogOpened">
+    <el-dialog
+      :title="isEditMode ? '编辑配置字典' : '创建配置字典'"
+      :visible.sync="showCreateDialog"
+      width="70%"
+      @opened="onCreateDialogOpened"
+    >
       <el-tabs v-model="createTab" @tab-click="handleTabClick">
         <!-- 表单模式 -->
         <el-tab-pane label="表单模式" name="form">
@@ -138,6 +143,7 @@ export default {
         wordWrap: 'on'
       },
       showCreateDialog: false,
+      isEditMode: false, // true 表示编辑模式
       createTab: 'form', // 当前标签页
       createForm: {
         name: '',
@@ -415,6 +421,7 @@ export default {
     },
     handleEdit(row) {
       this.isEdit = true
+      this.isEditMode = true
       this.editingConfigMapName = row.metadata.name
       this.createForm.name = row.metadata.name
       this.createForm.dataItems = Object.entries(row.data || {}).map(([key, value]) => ({ key, value }))

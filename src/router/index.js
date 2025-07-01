@@ -99,24 +99,6 @@ export const constantRoutes = [
         component: () => import('@/views/tree/index'),
         meta: { title: '无状态服务', icon: 'table' }
       },
-      // {
-      //   path: 'tree',
-      //   name: 'Tree',
-      //   component: () => import('@/views/tree/index'),
-      //   meta: { title: '有状态服服务', icon: 'tree' }
-      // },
-      // {
-      //   path: 'table',
-      //   name: 'Table',
-      //   component: () => import('@/views/tree/index'),
-      //   meta: { title: '任务', icon: 'table' }
-      // },
-      // {
-      //   path: 'tree',
-      //   name: 'Tree',
-      //   component: () => import('@/views/tree/index'),
-      //   meta: { title: '定时任务', icon: 'tree' }
-      // },
       {
         path: 'tree',
         name: 'Tree',
@@ -131,24 +113,12 @@ export const constantRoutes = [
     component: Layout,
     redirect: '/example/table',
     name: 'Example',
-    meta: { title: '服务与路由', icon: 'el-icon-s-help' },
+    meta: { title: '配置文件', icon: 'el-icon-s-help' },
     // Services（服务列表及类型：ClusterIP、NodePort、LoadBalancer）
     // Ingress（路由规则及证书管理）
     // ConfigMaps（配置管理）
     // Secrets（敏感信息管理）
     children: [
-      // {
-      //   path: 'table',
-      //   name: 'Table',
-      //   component: () => import('@/views/tree/index'),
-      //   meta: { title: '应用服务', icon: 'table' }
-      // },
-      // {
-      //   path: 'ingress',
-      //   name: 'Tree',
-      //   component: () => import('@/views/ingress/index'),
-      //   meta: { title: '应用路由', icon: 'tree' }
-      // },
       {
         path: 'configmap',
         name: 'configmap',
@@ -163,12 +133,12 @@ export const constantRoutes = [
       }
     ]
   },
-  /*
+
   {
     path: '/storages',
     component: Layout,
-    redirect: '/example/table',
-    name: 'Example',
+    redirect: '/storages/table',
+    name: 'Storages',
     meta: { title: '存储与持久化', icon: 'el-icon-s-help' },
     // Persistent Volumes（持久卷列表）
     // Persistent Volume Claims（持久卷声明）
@@ -176,31 +146,25 @@ export const constantRoutes = [
     // Horizontal Pod Autoscalers（自动扩缩容策略）
     children: [
       {
-        path: 'table',
-        name: 'Table',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '持久卷', icon: 'table' }
-      },
-      {
-        path: 'tree',
-        name: 'Tree',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '持久卷声明', icon: 'tree' }
-      },
-      {
-        path: 'table',
-        name: 'Table',
-        component: () => import('@/views/tree/index'),
+        path: 'storageclass',
+        name: 'storageclass',
+        component: () => import('@/views/storageclass/index'),
         meta: { title: '存储类', icon: 'table' }
       },
       {
-        path: 'tree',
-        name: 'Tree',
-        component: () => import('@/views/tree/index'),
-        meta: { title: '自动扩缩容策略', icon: 'tree' }
+        path: 'persistentvolumes',
+        name: 'persistentvolumes',
+        component: () => import('@/views/persistentvolumes/index'),
+        meta: { title: '持久卷', icon: 'table' }
+      },
+      {
+        path: 'persistentvolumeclaims',
+        name: 'persistentvolumeclaims',
+        component: () => import('@/views/persistentvolumeclaims/index'),
+        meta: { title: '持久卷声明', icon: 'tree' }
       }
     ]
-  }, */
+  },
 
   {
     path: '/form',
