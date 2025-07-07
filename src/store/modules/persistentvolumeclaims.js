@@ -35,7 +35,7 @@ const actions = {
     return res
   },
   async deletePersistentVolumeClaims(_, { wsName, nsName, pvcName }) {
-    console.log('前端传递删除pvc的wsName：', wsName, '获取的ns',nsName, 'pvc名称：',pvcName )
+    console.log('前端传递删除pvc的wsName：', wsName, '获取的ns', nsName, 'pvc名称：', pvcName)
     const res = await deletePersistentVolumeClaims(wsName, nsName, pvcName)
     return res
   }

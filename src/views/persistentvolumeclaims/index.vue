@@ -284,7 +284,6 @@ export default {
         await this.deletePersistentVolumeClaims({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, pvcName: row.metadata.name })
         this.fetchPVCs()
         this.$message.success('删除成功')
-        
       })
     },
     async handleView(row) {

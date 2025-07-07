@@ -84,8 +84,8 @@ export const constantRoutes = [
   {
     path: '/workloads',
     component: Layout,
-    redirect: '/example/table',
-    name: 'Example',
+    redirect: '/workloads/table',
+    name: 'Workloads',
     meta: { title: '工作负载', icon: 'el-icon-s-help' },
     /* Pods（所有 Pod 列表及状态）
         Deployments（部署列表及扩缩容操作）
@@ -94,15 +94,15 @@ export const constantRoutes = [
         Jobs/CronJobs（批处理任务管理） */
     children: [
       {
-        path: 'table',
-        name: 'Table',
+        path: 'deployment',
+        name: 'Deployment',
         component: () => import('@/views/tree/index'),
         meta: { title: '无状态服务', icon: 'table' }
       },
       {
-        path: 'tree',
-        name: 'Tree',
-        component: () => import('@/views/tree/index'),
+        path: 'pod',
+        name: 'Pod',
+        component: () => import('@/views/pod/index'),
         meta: { title: '容器组', icon: 'tree' }
       }
     ]
