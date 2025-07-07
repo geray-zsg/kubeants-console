@@ -13,6 +13,7 @@ import configmap from './modules/configmap'
 import secrets from './modules/secret'
 import storageclass from './modules/storageclass'
 import persistentvolumes from './modules/persistentvolumes'
+import persistentvolumeclaims from './modules/persistentvolumeclaims'
 
 Vue.use(Vuex)
 
@@ -29,7 +30,8 @@ const store = new Vuex.Store({
     configmap,
     secrets,
     storageclass,
-    persistentvolumes
+    persistentvolumes,
+    persistentvolumeclaims
   },
   getters
 })

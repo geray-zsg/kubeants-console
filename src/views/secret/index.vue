@@ -50,7 +50,7 @@
       <el-table-column label="操作">
         <template v-slot="{ row }">
           <el-button @click="handleView(row)">详情</el-button>
-          <el-button type="primary" @click="handleEdit(row)">修改</el-button>
+          <el-button type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -304,8 +304,8 @@ export default {
     async handleDelete(row) {
       this.$confirm(`确认删除secret [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
         await this.deleteSecret({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, secretName: row.metadata.name })
-        this.$message.success('删除成功')
         this.fetchSecrets()
+        this.$message.success('删除成功')
       })
     },
     async handleView(row) {
