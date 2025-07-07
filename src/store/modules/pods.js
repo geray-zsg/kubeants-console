@@ -1,6 +1,6 @@
 import {
   getPod,
-  getPodDetaile,
+  getPodDetail,
   updatePod,
   createPod,
   deletePod
@@ -22,20 +22,20 @@ const actions = {
     commit('SET_PODS', res.items)
   },
 
-  async getPodDetaile(_, { wsName, nsName, podName }) {
-    const res = await getPodDetaile(wsName, nsName, podName)
+  async getPodDetail(_, { wsName, nsName, podName }) {
+    const res = await getPodDetail(wsName, nsName, podName)
     return res
   },
-  async createPod(_, { wsName, nsName, podName, pvc }) {
-    const res = await createPod(wsName, nsName, podName, pvc)
+  async createPod(_, { wsName, nsName, podName, pod }) {
+    const res = await createPod(wsName, nsName, podName, pod)
     return res
   },
-  async updatePod(_, { wsName, nsName, podName, pvc }) {
-    const res = await updatePod(wsName, nsName, podName, pvc)
+  async updatePod(_, { wsName, nsName, podName, pod }) {
+    const res = await updatePod(wsName, nsName, podName, pod)
     return res
   },
   async deletePod(_, { wsName, nsName, podName }) {
-    console.log('前端传递删除pvc的wsName：', wsName, '获取的ns', nsName, 'pvc名称：', podName)
+    console.log('前端传递删除pod的wsName：', wsName, '获取的ns', nsName, 'pod名称：', podName)
     const res = await deletePod(wsName, nsName, podName)
     return res
   }

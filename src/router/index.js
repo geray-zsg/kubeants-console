@@ -96,7 +96,7 @@ export const constantRoutes = [
       {
         path: 'deployment',
         name: 'Deployment',
-        component: () => import('@/views/tree/index'),
+        component: () => import('@/views/deployment/index'),
         meta: { title: '无状态服务', icon: 'table' }
       },
       {

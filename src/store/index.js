@@ -14,7 +14,8 @@ import secrets from './modules/secret'
 import storageclass from './modules/storageclass'
 import persistentvolumes from './modules/persistentvolumes'
 import persistentvolumeclaims from './modules/persistentvolumeclaims'
-import pod from './modules/pods'
+import pods from './modules/pods'
+import deployments from './modules/deployments'
 
 Vue.use(Vuex)
 
@@ -33,7 +34,8 @@ const store = new Vuex.Store({
     storageclass,
     persistentvolumes,
     persistentvolumeclaims,
-    pod
+    pods,
+    deployments
   },
   getters
 })

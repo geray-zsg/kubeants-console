@@ -7,7 +7,7 @@ export function getPod(wsName, nsName) {
   })
 }
 
-export function getPodDetaile(wsName, nsName, podName) {
+export function getPodDetail(wsName, nsName, podName) {
   return request({
     url: `/gapi/cluster/ka/workspace/${wsName}/api/v1/namespaces/${nsName}/pods/${podName}`,
     method: 'get'

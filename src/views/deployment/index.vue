@@ -7,13 +7,13 @@
       </el-select>
 
       <span class="filter-label">命名空间：</span>
-      <el-select v-model="selectedNamespace" placeholder="选择命名空间" style="margin-left: 10px" @change="fetchPods">
+      <el-select v-model="selectedNamespace" placeholder="选择命名空间" style="margin-left: 10px" @change="fetchdeployments">
         <el-option v-for="ns in filteredNamespaces" :key="ns.metadata.name" :label="ns.metadata.name" :value="ns.metadata.name" />
       </el-select>
 
       <el-input
         v-model="searchText"
-        placeholder="搜索容器组"
+        placeholder="搜索无状态服务"
         style="margin-left: 20px; width: 300px"
         clearable
       />
@@ -24,7 +24,7 @@
       <el-button
         type="danger"
         size="mini"
-        :disabled="selectedPods.length === 0"
+        :disabled="selecteddeployments.length === 0"
         @click="handleBatchDelete"
       >
         批量删除
@@ -47,7 +47,7 @@
     </div>
 
     <div class="table-container">
-      <el-table v-loading="loading" :data="pagedPods || []" border style="flex: 1; overflow: auto" @selection-change="handleSelectionChange">
+      <el-table v-loading="loading" :data="pageddeployments || []" border style="flex: 1; overflow: auto" @selection-change="handleSelectionChange">
         <!-- 多选框 -->
         <el-table-column type="selection" width="55" />
         <el-table-column prop="metadata.name" label="名称" width="400" />
@@ -59,7 +59,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="spec.nodeName" label="节点" width="200" />
-        <el-table-column prop="status.podIP" label="容器组IP" width="160" />
+        <el-table-column prop="status.DeploymentIP" label="容器组IP" width="160" />
         <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
           <template v-slot="{ row }">
             {{ formatDate(row.metadata.creationTimestamp) }}
@@ -84,7 +84,7 @@
         layout="total, prev, pager, next"
         :current-page="currentPage"
         :page-size="pageSize"
-        :total="filteredPodsByStatus.length"
+        :total="filtereddeploymentsByStatus.length"
         style="margin-top: 16px; text-align: right"
         @current-change="handlePageChange"
       />
@@ -97,7 +97,7 @@
           v-model="yamlContent"
           language="yaml"
           theme="vs-dark"
-          :options="detailEditorOptions"
+          :options="DetailditorOptions"
         />
       </div>
     </el-dialog>
@@ -118,7 +118,7 @@ export default {
       searchText: '',
       showYamlDialog: false,
       yamlContent: '',
-      detailEditorOptions: {
+      DetailditorOptions: {
         readOnly: false,
         automaticLayout: true,
         minimap: { enabled: false },
@@ -128,7 +128,7 @@ export default {
         wordWrap: 'on'
       },
       loading: false,
-      selectedPods: [],
+      selectedDeployments: [],
       pageSize: 10,
       currentPage: 1,
       selectedStatus: ''
@@ -137,34 +137,34 @@ export default {
   computed: {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
-    ...mapGetters('pods', ['pods']),
+    ...mapGetters('deployments', ['deployments']),
     filteredNamespaces() {
       return this.namespaces.filter(ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace)
     },
-    filteredPods() {
+    filtereddeployments() {
       return this.searchText
-        ? this.pods.filter(p => p.metadata.name.includes(this.searchText))
-        : this.pods
+        ? this.deployments.filter(p => p.metadata.name.includes(this.searchText))
+        : this.deployments
     },
     statusCounts() {
       const counts = {}
-      this.pods.forEach(pod => {
-        const phase = pod.status?.phase || 'Unknown'
+      this.deployments.forEach(deploy => {
+        const phase = deploy.status?.phase || 'Unknown'
         counts[phase] = (counts[phase] || 0) + 1
       })
       return counts
     },
-    filteredPodsByStatus() {
-      if (!this.selectedStatus) return this.filteredPods
-      return this.filteredPods.filter(pod => pod.status?.phase === this.selectedStatus)
+    filteredDeploymentsByStatus() {
+      if (!this.selectedStatus) return this.filtereddeployments
+      return this.filteredDeployments.filter(deployment => deployment.status?.phase === this.selectedStatus)
     },
-    pagedPods() {
+    pagedDeployments() {
       const start = (this.currentPage - 1) * this.pageSize
-      return this.filteredPodsByStatus.slice(start, start + this.pageSize)
+      return this.filteredDeploymentsByStatus.slice(start, start + this.pageSize)
     }
   },
   watch: {
-    filteredPodsByStatus() {
+    filtereddeploymentsByStatus() {
       this.currentPage = 1
     }
   },
@@ -179,11 +179,11 @@ export default {
     ...mapActions('dashboard', ['getWorkspaces']),
     ...mapActions('workspace', ['getNamespaces']),
     ...mapActions('storageclass', ['getStorageclass']),
-    ...mapActions('pods', [
-      'getPod',
-      'getPodDetail',
-      'createPod',
-      'deletePod'
+    ...mapActions('deployments', [
+      'getDeployment',
+      'getDeploymentDetail',
+      'createDeployment',
+      'deleteDeployment'
     ]),
 
     async onWorkspaceChange() {
@@ -192,14 +192,14 @@ export default {
       const filtered = this.filteredNamespaces
       if (filtered.length > 0) {
         this.selectedNamespace = filtered[0].metadata.name
-        this.fetchPods()
+        this.fetchdeployments()
       }
     },
-    async fetchPods() {
+    async fetchdeployments() {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
       this.loading = true
       try {
-        await this.getPod({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+        await this.getDeployment({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
       } finally {
         this.loading = false
       }
@@ -261,26 +261,26 @@ export default {
         })
       }
     },
-    async submitCreatePod() {
+    async submitCreatePVC() {
       this.generateYamlFromForm(false)
-      let pod
+      let pvc
       try {
-        pod = yaml.load(this.createYamlContent)
+        pvc = yaml.load(this.createYamlContent)
       } catch (err) {
         this.$message.error('YAML 格式错误：' + err.message)
         return
       }
 
       try {
-        await this.createPod({
+        await this.createDeployment({
           wsName: this.selectedWorkspace,
           nsName: this.selectedNamespace,
-          podName: pod.metadata.name,
-          pod
+          pvcName: pvc.metadata.name,
+          pvc
         })
         this.$message.success('创建成功')
         this.createDialogVisible = false
-        this.fetchPods()
+        this.fetchdeployments()
       } catch (err) {
         this.$message.error('创建失败')
         console.error(err)
@@ -292,25 +292,25 @@ export default {
     },
     async handleDelete(row) {
       this.$confirm(`确认删除容器组 [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
-        await this.deletePod({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, podName: row.metadata.name })
-        this.fetchPods()
+        await this.deleteDeployment({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, pvcName: row.metadata.name })
+        this.fetchdeployments()
         this.$message.success('删除成功')
       })
     },
     async handleView(row) {
       try {
-        const res = await this.getPodDetail({
+        const res = await this.getDeploymentDetail({
           wsName: this.selectedWorkspace,
           nsName: this.selectedNamespace,
-          podName: row.metadata.name
+          DeploymentName: row.metadata.name
         })
         this.yamlContent = yaml.dump(res)
         this.showYamlDialog = true
 
         // 等待渲染后刷新编辑器布局
         this.$nextTick(() => {
-          this.$refs.yamlViewer?.editor?.setValue(this.yamlContent)
-          this.refreshMonacoEditor()
+      this.$refs.yamlViewer?.editor?.setValue(this.yamlContent)
+      this.refreshMonacoEditor()
         })
       } catch (err) {
         this.$message.error('获取 YAML 详情失败')
@@ -338,23 +338,23 @@ export default {
     },
 
     async handleBatchDelete() {
-      if (this.selectedPods.length === 0) {
-        this.$message.warning('请先选择要删除的 Pod')
+      if (this.selecteddeployments.length === 0) {
+        this.$message.warning('请先选择要删除的 Deployment')
         return
       }
 
-      this.$confirm(`确认删除选中的 ${this.selectedPods.length} 个 Pod？`, '提示', { type: 'warning' }).then(async() => {
-        const tasks = this.selectedPods.map(pod =>
-          this.deletePod({
+      this.$confirm(`确认删除选中的 ${this.selecteddeployments.length} 个 Deployment？`, '提示', { type: 'warning' }).then(async() => {
+        const tasks = this.selecteddeployments.map(Deployment =>
+          this.deleteDeployment({
             wsName: this.selectedWorkspace,
             nsName: this.selectedNamespace,
-            podName: pod.metadata.name
+            DeploymentName: Deployment.metadata.name
           })
         )
         try {
           await Promise.all(tasks)
           this.$message.success('批量删除成功')
-          this.fetchPods()
+          this.fetchdeployments()
         } catch (err) {
           this.$message.error('删除失败')
           console.error(err)
@@ -363,7 +363,7 @@ export default {
     },
     // 添加分页事件
     handleSelectionChange(val) {
-      this.selectedPods = val
+      this.selecteddeployments = val
     },
     handlePageChange(page) {
       this.currentPage = page
