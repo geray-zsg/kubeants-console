@@ -79,14 +79,17 @@
         </template>
       </el-table>
       <!-- 分页 -->
-      <el-pagination
+            <!-- 增强的分页组件 -->
+            <el-pagination
         background
-        layout="total, prev, pager, next"
+        layout="total, sizes, prev, pager, next"
         :current-page="currentPage"
+        :page-sizes="[10, 20, 50, 100, 500]"
         :page-size="pageSize"
         :total="filteredPodsByStatus.length"
         style="margin-top: 16px; text-align: right"
         @current-change="handlePageChange"
+        @size-change="handleSizeChange"
       />
     </div>
 
@@ -185,7 +188,11 @@ export default {
       'createPod',
       'deletePod'
     ]),
-
+    // 新增分页大小改变处理方法
+    handleSizeChange(size) {
+      this.pageSize = size
+      this.currentPage = 1 // 重置到第一页
+    },
     async onWorkspaceChange() {
       this.selectedNamespace = ''
       await this.getNamespaces(this.selectedWorkspace)

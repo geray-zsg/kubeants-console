@@ -1,6 +1,6 @@
 import {
   getDeployment,
-  getDeploymentDetaile,
+  getDeploymentDetail,
   updateDeployment,
   createDeployment,
   deleteDeployment
@@ -22,20 +22,21 @@ const actions = {
     commit('SET_DEPLOYMENTS', res.items)
   },
 
-  async getDeploymentDetaile(_, { wsName, nsName, deployName }) {
-    const res = await getDeploymentDetaile(wsName, nsName, deployName)
+  async getDeploymentDetail(_, { wsName, nsName, deployName }) {
+    console.log('前端传递删除deploy的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', deployName)
+    const res = await getDeploymentDetail(wsName, nsName, deployName)
     return res
   },
-  async createDeployment(_, { wsName, nsName, deployName, pvc }) {
-    const res = await createDeployment(wsName, nsName, deployName, pvc)
+  async createDeployment(_, { wsName, nsName, deployName, deploy }) {
+    const res = await createDeployment(wsName, nsName, deployName, deploy)
     return res
   },
-  async updateDeployment(_, { wsName, nsName, deployName, pvc }) {
-    const res = await updateDeployment(wsName, nsName, deployName, pvc)
+  async updateDeployment(_, { wsName, nsName, deployName, deploy }) {
+    const res = await updateDeployment(wsName, nsName, deployName, deploy)
     return res
   },
   async deleteDeployment(_, { wsName, nsName, deployName }) {
-    console.log('前端传递删除pvc的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', deployName)
+    console.log('前端传递删除deploy的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', deployName)
     const res = await deleteDeployment(wsName, nsName, deployName)
     return res
   }

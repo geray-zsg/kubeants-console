@@ -7,7 +7,7 @@ export function getDeployment(wsName, nsName) {
   })
 }
 
-export function getDeploymentDetaile(wsName, nsName, deployName) {
+export function getDeploymentDetail(wsName, nsName, deployName) {
   return request({
     url: `/gapi/cluster/ka/workspace/${wsName}/apis/apps/v1/namespaces/${nsName}/deployments/${deployName}`,
     method: 'get'

@@ -24,7 +24,7 @@
       <el-button
         type="danger"
         size="mini"
-        :disabled="selecteddeployments.length === 0"
+        :disabled="selectedDeployments.length === 0"
         @click="handleBatchDelete"
       >
         批量删除
@@ -47,46 +47,92 @@
     </div>
 
     <div class="table-container">
-      <el-table v-loading="loading" :data="pageddeployments || []" border style="flex: 1; overflow: auto" @selection-change="handleSelectionChange">
-        <!-- 多选框 -->
+      <!-- 优化后的表格 -->
+      <el-table
+        v-loading="loading"
+        :data="pagedDeployments || []"
+        border
+        style="flex: 1; overflow: auto"
+        @selection-change="handleSelectionChange"
+      >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="metadata.name" label="名称" width="400" />
-        <el-table-column prop="status.phase" label="状态" width="120">
+        <el-table-column prop="metadata.name" label="名称" width="220" />
+
+        <!-- 状态列优化 -->
+        <el-table-column label="状态" width="120">
           <template v-slot="{ row }">
-            <el-tag :type="getStatusTagType(row.status.phase)" size="small">
-              {{ row.status.phase }}
+            <el-tag :type="getDeploymentStatusTagType(row)" size="small">
+              {{ getDeploymentStatus(row) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="spec.nodeName" label="节点" width="200" />
-        <el-table-column prop="status.DeploymentIP" label="容器组IP" width="160" />
+
+        <!-- 新增副本数列 -->
+        <el-table-column label="副本" width="120">
+          <template v-slot="{ row }">
+            <span class="replica-count">
+              {{ getAvailableReplicas(row) }}/{{ getDesiredReplicas(row) }}
+            </span>
+          </template>
+        </el-table-column>
+
+        <!-- 新增就绪状态列 -->
+        <el-table-column label="就绪" width="120">
+          <template v-slot="{ row }">
+            <span class="ready-count">
+              {{ getReadyReplicas(row) }}/{{ getDesiredReplicas(row) }}
+            </span>
+          </template>
+        </el-table-column>
+
+        <!-- 新增镜像信息列 -->
+        <el-table-column label="镜像" min-width="200">
+          <template v-slot="{ row }">
+            <div class="image-info">
+              <el-tooltip
+                v-for="(container, index) in getContainers(row)"
+                :key="index"
+                :content="container.image"
+              >
+                <el-tag size="small" class="image-tag">
+                  {{ truncateImageName(container.image) }}
+                </el-tag>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
           <template v-slot="{ row }">
             {{ formatDate(row.metadata.creationTimestamp) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="220">
+
+        <el-table-column label="操作" fixed="right" width="180">
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" text @click="handleView(row)">详情</el-button>
-              <!-- <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button> -->
               <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
+
         <template #empty>
-          <el-empty description="暂无容器组数据" />
+          <el-empty description="暂无Deployment数据" />
         </template>
       </el-table>
-      <!-- 分页 -->
+
+      <!-- 增强的分页组件 -->
       <el-pagination
         background
-        layout="total, prev, pager, next"
+        layout="total, sizes, prev, pager, next"
         :current-page="currentPage"
+        :page-sizes="[10, 20, 50, 100, 500]"
         :page-size="pageSize"
-        :total="filtereddeploymentsByStatus.length"
+        :total="filteredDeploymentsByStatus.length"
         style="margin-top: 16px; text-align: right"
         @current-change="handlePageChange"
+        @size-change="handleSizeChange"
       />
     </div>
 
@@ -141,30 +187,35 @@ export default {
     filteredNamespaces() {
       return this.namespaces.filter(ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace)
     },
-    filtereddeployments() {
+    filteredDeployments() {
       return this.searchText
         ? this.deployments.filter(p => p.metadata.name.includes(this.searchText))
         : this.deployments
     },
-    statusCounts() {
-      const counts = {}
-      this.deployments.forEach(deploy => {
-        const phase = deploy.status?.phase || 'Unknown'
-        counts[phase] = (counts[phase] || 0) + 1
-      })
-      return counts
-    },
     filteredDeploymentsByStatus() {
-      if (!this.selectedStatus) return this.filtereddeployments
-      return this.filteredDeployments.filter(deployment => deployment.status?.phase === this.selectedStatus)
+      if (!this.selectedStatus) return this.filteredDeployments
+      return this.filteredDeployments.filter(deployment => {
+        const status = this.getDeploymentStatus(deployment)
+        return status === this.selectedStatus
+      })
     },
+
     pagedDeployments() {
       const start = (this.currentPage - 1) * this.pageSize
       return this.filteredDeploymentsByStatus.slice(start, start + this.pageSize)
+    },
+    // 优化状态统计
+    statusCounts() {
+      const counts = {}
+      this.filteredDeployments.forEach(deploy => {
+        const status = this.getDeploymentStatus(deploy)
+        counts[status] = (counts[status] || 0) + 1
+      })
+      return counts
     }
   },
   watch: {
-    filtereddeploymentsByStatus() {
+    filteredDeploymentsByStatus() {
       this.currentPage = 1
     }
   },
@@ -292,7 +343,7 @@ export default {
     },
     async handleDelete(row) {
       this.$confirm(`确认删除容器组 [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
-        await this.deleteDeployment({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, pvcName: row.metadata.name })
+        await this.deleteDeployment({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, deployName: row.metadata.name })
         this.fetchdeployments()
         this.$message.success('删除成功')
       })
@@ -302,7 +353,7 @@ export default {
         const res = await this.getDeploymentDetail({
           wsName: this.selectedWorkspace,
           nsName: this.selectedNamespace,
-          DeploymentName: row.metadata.name
+          deployName: row.metadata.name
         })
         this.yamlContent = yaml.dump(res)
         this.showYamlDialog = true
@@ -338,17 +389,17 @@ export default {
     },
 
     async handleBatchDelete() {
-      if (this.selecteddeployments.length === 0) {
+      if (this.selectedDeployments.length === 0) {
         this.$message.warning('请先选择要删除的 Deployment')
         return
       }
 
-      this.$confirm(`确认删除选中的 ${this.selecteddeployments.length} 个 Deployment？`, '提示', { type: 'warning' }).then(async() => {
-        const tasks = this.selecteddeployments.map(Deployment =>
+      this.$confirm(`确认删除选中的 ${this.selectedDeployments.length} 个 Deployment？`, '提示', { type: 'warning' }).then(async() => {
+        const tasks = this.selectedDeployments.map(Deployment =>
           this.deleteDeployment({
             wsName: this.selectedWorkspace,
             nsName: this.selectedNamespace,
-            DeploymentName: Deployment.metadata.name
+            deployName: Deployment.metadata.name
           })
         )
         try {
@@ -363,7 +414,7 @@ export default {
     },
     // 添加分页事件
     handleSelectionChange(val) {
-      this.selecteddeployments = val
+      this.selectedDeployments = val
     },
     handlePageChange(page) {
       this.currentPage = page
@@ -371,12 +422,111 @@ export default {
     handleStatusFilterChange(val) {
       this.selectedStatus = val
       this.currentPage = 1
+    },
+    // 新增分页大小改变处理方法
+    handleSizeChange(size) {
+      this.pageSize = size
+      this.currentPage = 1 // 重置到第一页
+    },
+    // 优化Deployment状态获取
+    getDeploymentStatus(deployment) {
+      if (!deployment.status) return 'Unknown'
+
+      const available = deployment.status.availableReplicas || 0
+      const desired = deployment.spec.replicas || 0
+
+      if (deployment.status.conditions?.some(c => c.type === 'Progressing' && c.status === 'False')) {
+        return 'Failed'
+      }
+      if (available === desired) {
+        return 'Running'
+      }
+      if (desired === 0) {
+        return 'Stopped'
+      }
+      return 'Updating'
+    },
+    // 优化状态标签类型
+    getDeploymentStatusTagType(deployment) {
+      const status = this.getDeploymentStatus(deployment)
+      switch (status) {
+        case 'Running': return 'success'
+        case 'Stopped': return 'info'
+        case 'Updating': return 'warning'
+        case 'Failed': return 'danger'
+        default: return ''
+      }
+    },
+    // 获取容器信息
+    getContainers(deployment) {
+      return deployment.spec.template?.spec?.containers || []
+    },
+
+    // 获取可用副本数
+    getAvailableReplicas(deployment) {
+      return deployment.status?.availableReplicas || 0
+    },
+    // 获取就绪副本数
+    getReadyReplicas(deployment) {
+      return deployment.status?.readyReplicas || 0
+    },
+
+    // 获取期望副本数
+    getDesiredReplicas(deployment) {
+      return deployment.spec?.replicas || 0
+    },
+
+    // 缩短镜像名称显示
+    truncateImageName(image) {
+      if (!image) return ''
+
+      // 移除仓库地址，只保留镜像名和tag
+      const parts = image.split('/')
+      const result = parts[parts.length - 1]
+
+      // 截断过长的镜像名
+      if (result.length > 30) {
+        return result.substring(0, 27) + '...'
+      }
+      return result
     }
+
   }
 }
 </script>
 
 <style scoped>
+.deployment-page {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 100px);
+}
+
+.table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 新增样式 */
+.replica-count, .ready-count {
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+.image-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.image-tag {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .secret-page {
   padding: 20px;
   display: flex;
