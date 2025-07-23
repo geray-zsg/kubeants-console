@@ -15,6 +15,7 @@ import router from './router'
 import '@/icons' // icon
 import '@/permission' // permission control
 // import 'monaco-editor/min/vs/editor/editor.main.css'
+import { loadConfig } from './loadConfig'
 
 /**
  * If you don't want to use mock-server
@@ -36,9 +37,18 @@ Vue.use(ElementUI, { locale })
 
 Vue.config.productionTip = false
 
-new Vue({
-  el: '#app',
-  router,
-  store,
-  render: h => h(App)
+// new Vue({
+//   el: '#app',
+//   router,
+//   store,
+//   render: h => h(App)
+// })
+// 👇 等待运行时 config.json 加载完成再启动 Vue 应用
+loadConfig().then(() => {
+  new Vue({
+    el: '#app',
+    router,
+    store,
+    render: h => h(App)
+  })
 })

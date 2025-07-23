@@ -3,9 +3,14 @@ import { MessageBox, Message } from 'element-ui'
 import store from '@/store'
 import { getToken } from '@/utils/auth'
 
+// 👇改这里：支持运行时读取 config.json 设置
+const baseURL =
+  window._env_?.VUE_APP_BASE_API || process.env.VUE_APP_BASE_API || '/'
+
 // create an axios instance，创建axios实例
 const service = axios.create({
-  baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
+  // baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
+  baseURL,
   // withCredentials: true, // send cookies when cross-domain requests
   timeout: 5000 // 超时时间
 })

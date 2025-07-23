@@ -5,6 +5,10 @@ metadata:
   name: ka-console
   namespace: kubeants-system
 data:
+  config.json: |-
+    {
+        "VUE_APP_BASE_API": "http://172.17.142.147:30002/"
+    }
   default.conf: |-
     server {
         listen 80;
@@ -20,6 +24,10 @@ data:
             root /usr/share/nginx/html;
             index index.html;
             try_files $uri /index.html;
+        }
+        location /config.json {
+          alias /usr/share/nginx/html/config.json;
+          expires -1; # 禁止缓存
         }
         # 新增：反向代理到后端 API
         location /gapi/ {
@@ -60,10 +68,16 @@ spec:
             items:
               - key: default.conf
                 path: default.conf
+              - key: config.json
+                path: config.json
             defaultMode: 420
       containers:
         - name: container-y2072s
-          image: 'repos.devops.cmft/workbench/kubeants-console:v1.2.6'
+          image: 'registry.cn-hangzhou.aliyuncs.com/geray/kubeants-console:v1.1.16'
+          imagePullPolicy: Always
+          env:
+            - name: VUE_APP_BASE_API
+              value: 'http://172.17.142.147:30002/'
           ports:
             - name: http-0
               containerPort: 80
@@ -83,4 +97,25 @@ spec:
               readOnly: true
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: default.conf
+            - name: volume-li19dt
+              mountPath: /usr/share/nginx/html/config.json
+              subPath: config.json
 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kubeants-console
+  name: kubeants-console
+  namespace: kubeants-system
+spec:
+  ports:
+  - name: http
+    nodePort: 30002
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: kubeants-console
+  type: NodePort
