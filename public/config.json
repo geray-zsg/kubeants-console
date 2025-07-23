@@ -1,0 +1,3 @@
+{
+    "VUE_APP_BASE_API": "http://kubeants-apiserver.kubeants-system/gapi"
+}

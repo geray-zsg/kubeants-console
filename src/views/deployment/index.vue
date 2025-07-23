@@ -17,6 +17,9 @@
         style="margin-left: 20px; width: 300px"
         clearable
       />
+      <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
+        创建无状态服务
+      </el-button>
     </div>
 
     <!-- 操作栏：批量删除 + 状态筛选 -->
@@ -136,7 +139,7 @@
       />
     </div>
 
-    <el-dialog title="容器组详情" :visible.sync="showYamlDialog" width="70%" @opened="refreshMonacoEditor">
+    <el-dialog title="无状态服务详情" :visible.sync="showYamlDialog" width="70%" @opened="refreshMonacoEditor">
       <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
         <monaco-editor
           ref="yamlViewer"
@@ -147,6 +150,244 @@
         />
       </div>
     </el-dialog>
+
+    <!-- 创建对话框 -->
+    <el-dialog
+      title="创建无状态服务"
+      :visible.sync="createDialogVisible"
+      width="70%"
+      @opened="onCreateDialogOpened"
+    >
+      <el-tabs v-model="createTab" @tab-click="handleTabClick">
+        <el-tab-pane label="表单模式" name="form">
+          <el-form :model="createForm" label-width="120px">
+            <!-- 基础信息 -->
+            <el-form-item label="名称" required>
+              <el-input v-model="createForm.metadata.name" placeholder="输入服务名称" />
+            </el-form-item>
+            <el-form-item label="副本数">
+              <el-input-number v-model="createForm.spec.replicas" :min="0" />
+            </el-form-item>
+
+            <!-- 容器管理 -->
+            <div class="container-management">
+              <el-tabs v-model="containerTab" class="container-tabs">
+                <el-tab-pane name="container">
+                  <template #label>
+                    <span>工作容器 ({{ containerCounts.container }})</span>
+                  </template>
+                </el-tab-pane>
+                <el-tab-pane name="initContainer">
+                  <template #label>
+                    <span>初始化容器 ({{ containerCounts.initContainer }})</span>
+                  </template>
+                </el-tab-pane>
+              </el-tabs>
+
+              <div class="container-actions">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="addContainer(containerTab)"
+                >
+                  + 添加{{ containerTab === 'container' ? '工作容器' : '初始化容器' }}
+                </el-button>
+              </div>
+            </div>
+
+            <!-- 容器列表 -->
+            <div
+              v-for="(container, index) in currentContainers"
+              :key="container.id"
+              class="container-card"
+            >
+              <el-card>
+                <div slot="header" class="container-header">
+                  <span>{{ container.type === 'container' ? '工作容器' : '初始化容器' }} #{{ index + 1 }}</span>
+                  <el-button
+                    type="text"
+                    icon="el-icon-delete"
+                    style="float:right; color: #F56C6C"
+                    @click="removeContainer(container.id)"
+                  />
+                </div>
+
+                <el-form-item label="容器名称" required>
+                  <el-input v-model="container.name" placeholder="输入容器名称" />
+                </el-form-item>
+                <el-form-item label="镜像" required>
+                  <el-input v-model="container.image" placeholder="输入镜像地址" />
+                </el-form-item>
+                <!-- 端口配置（可添加多个） -->
+                <el-form-item label="端口配置">
+                  <div v-if="container.ports.length > 0">
+                    <div style="display: flex; font-weight: bold; margin-bottom: 6px;">
+                      <span style="width: 100px;">协议</span>
+                      <span style="width: 140px;">名称</span>
+                      <span style="width: 120px;">容器端口</span>
+                      <!-- <span style="width: 120px;">主机端口</span> -->
+                      <span style="flex: 1" />
+                    </div>
+
+                    <div
+                      v-for="(port, pIndex) in container.ports"
+                      :key="pIndex"
+                      style="display: flex; align-items: center; margin-bottom: 10px"
+                    >
+                      <el-select
+                        v-model="port.protocol"
+                        placeholder="协议"
+                        style="width: 100px"
+                        @change="onProtocolChange(container, pIndex)"
+                      >
+                        <el-option label="TCP" value="TCP" />
+                        <el-option label="UDP" value="UDP" />
+                      </el-select>
+
+                      <el-input
+                        v-model="port.name"
+                        placeholder="名称"
+                        style="width: 140px; margin-left: 10px"
+                        clearable
+                      />
+
+                      <el-input-number
+                        v-model="port.containerPort"
+                        :min="1"
+                        :max="65535"
+                        placeholder="容器端口"
+                        style="width: 120px; margin-left: 10px"
+                      />
+                      <!--
+                      <el-input-number
+                        v-model="port.hostPort"
+                        :min="1"
+                        :max="65535"
+                        placeholder="主机端口"
+                        style="width: 120px; margin-left: 10px"
+                      /> -->
+
+                      <el-button
+                        type="text"
+                        icon="el-icon-delete"
+                        style="color: #F56C6C; margin-left: 10px"
+                        @click="removePort(container, pIndex)"
+                      />
+                    </div>
+                  </div>
+
+                  <el-button
+                    size="mini"
+                    type="primary"
+                    icon="el-icon-plus"
+                    @click="addPort(container)"
+                  >
+                    添加端口
+                  </el-button>
+                </el-form-item>
+                <el-form-item label="资源配额">
+                  <div style="display: flex; flex-wrap: wrap; gap: 10px">
+                    <!-- 第一行 -->
+                    <div style="display: flex; gap: 10px; width: 100%">
+                      <el-form-item label="CPU请求" label-width="80px">
+                        <el-input v-model="container.resources.requests.cpu" placeholder="100m" style="width: 150px" />
+                      </el-form-item>
+                      <el-form-item label="内存请求" label-width="80px">
+                        <el-input v-model="container.resources.requests.memory" placeholder="128Mi" style="width: 150px" />
+                      </el-form-item>
+                    </div>
+                    <!-- 第二行 -->
+                    <div style="display: flex; gap: 10px; width: 100%">
+                      <el-form-item label="CPU上限" label-width="80px">
+                        <el-input v-model="container.resources.limits.cpu" placeholder="500m" style="width: 150px" />
+                      </el-form-item>
+                      <el-form-item label="内存上限" label-width="80px">
+                        <el-input v-model="container.resources.limits.memory" placeholder="512Mi" style="width: 150px" />
+                      </el-form-item>
+                    </div>
+                  </div>
+                </el-form-item>
+                <el-form-item label="镜像拉取策略">
+                  <el-select
+                    v-model="container.imagePullPolicy"
+                    placeholder="选择策略"
+                    style="width: 200px"
+                  >
+                    <el-option label="Always" value="Always" />
+                    <el-option label="IfNotPresent" value="IfNotPresent" />
+                    <el-option label="Never" value="Never" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="启动命令（command）">
+                  <el-input
+                    v-model="container.command"
+                    type="textarea"
+                    placeholder="每行一条命令参数，例如：/bin/sh"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                  />
+                </el-form-item>
+
+                <el-form-item label="启动参数（args）">
+                  <el-input
+                    v-model="container.args"
+                    type="textarea"
+                    placeholder="每行一个参数，例如：-c\nwhile true; do echo hello; sleep 10; done"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                  />
+                </el-form-item>
+
+                <el-form-item label="挂载卷（PVC）">
+                  <div v-for="(mount, index) in container.volumeMounts" :key="index" style="margin-bottom: 10px;">
+                    <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 200px; margin-right: 10px">
+                      <el-option
+                        v-for="pvc in pvcList"
+                        :key="pvc.metadata.name"
+                        :label="pvc.metadata.name"
+                        :value="pvc.metadata.name"
+                      />
+                    </el-select>
+                    <el-input v-model="mount.mountPath" placeholder="挂载路径" style="width: 200px; margin-right: 10px" />
+                    <el-select v-model="mount.readOnly" placeholder="挂载模式" style="width: 140px">
+                      <el-option label="读写" :value="false" />
+                      <el-option label="只读" :value="true" />
+                    </el-select>
+                    <el-button icon="el-icon-delete" type="text" @click="removeMount(container, index)" />
+                  </div>
+                  <el-button type="primary" size="mini" @click="addMount(container)">+ 添加挂载</el-button>
+                </el-form-item>
+              </el-card>
+            </div>
+
+            <!-- 无容器提示 -->
+            <div v-if="currentContainers.length === 0" class="no-container">
+              <el-alert
+                type="info"
+                :closable="false"
+                title="请添加至少一个容器"
+              />
+            </div>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- YAML模式 -->
+        <el-tab-pane label="YAML 模式" name="yaml">
+          <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
+            <monaco-editor
+              ref="createEditor"
+              v-model="createYamlContent"
+              language="yaml"
+              theme="vs-dark"
+              :options="DetailditorOptions"
+            />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitCreateDeployment">创建</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -154,6 +395,7 @@
 import { mapGetters, mapActions } from 'vuex'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
+import { joinShellArgs } from '@/utils/shellArgUtils'
 
 export default {
   components: { MonacoEditor },
@@ -177,7 +419,27 @@ export default {
       selectedDeployments: [],
       pageSize: 10,
       currentPage: 1,
-      selectedStatus: ''
+      selectedStatus: '',
+      createDialogVisible: false,
+      createTab: 'form',
+      createForm: {
+        metadata: { name: '' },
+        spec: {
+          replicas: 1,
+          selector: { matchLabels: { app: '' }},
+          template: {
+            metadata: { labels: { app: '' }},
+            spec: {
+              // 不再需要初始容器定义
+            }
+          }
+        }
+      },
+      allContainers: [],
+      createYamlContent: '',
+      containerTab: 'container',
+      containerIdCounter: 0,
+      pvcList: []
     }
   },
   computed: {
@@ -199,10 +461,18 @@ export default {
         return status === this.selectedStatus
       })
     },
-
     pagedDeployments() {
       const start = (this.currentPage - 1) * this.pageSize
       return this.filteredDeploymentsByStatus.slice(start, start + this.pageSize)
+    },
+    currentContainers() {
+      return this.allContainers.filter(c => c.type === this.containerTab)
+    },
+    containerCounts() {
+      return {
+        container: this.allContainers.filter(c => c.type === 'container').length,
+        initContainer: this.allContainers.filter(c => c.type === 'initContainer').length
+      }
     },
     // 优化状态统计
     statusCounts() {
@@ -230,6 +500,7 @@ export default {
     ...mapActions('dashboard', ['getWorkspaces']),
     ...mapActions('workspace', ['getNamespaces']),
     ...mapActions('storageclass', ['getStorageclass']),
+    ...mapActions('persistentvolumeclaims', ['getPersistentVolumeClaims']),
     ...mapActions('deployments', [
       'getDeployment',
       'getDeploymentDetail',
@@ -255,94 +526,234 @@ export default {
         this.loading = false
       }
     },
+
+    // 确保在打开创建对话框时获取PVC列表
     openCreateDialog() {
       this.createForm = {
         metadata: { name: '' },
         spec: {
-          accessModes: [],
-          resources: { requests: { storage: '' }},
-          storageClassName: ''
+          replicas: 1
         }
       }
+      this.allContainers = [this.createContainer('container')]
+      this.containerTab = 'container'
       this.createDialogVisible = true
 
-      // ✅ 只在打开创建弹窗时加载一次 SC（可根据实际情况判断是否已加载过）
-      if (this.selectedWorkspace) {
-        this.getStorageclass({ wsName: this.selectedWorkspace })
+      // 添加PVC列表获取
+      this.fetchPVCs()
+    },
+
+    // 创建容器对象
+    createContainer(type) {
+      return {
+        id: ++this.containerIdCounter,
+        type,
+        name: '',
+        image: '',
+        ports: [],
+        resources: {
+          requests: { cpu: '100', memory: '128' }, // 默认值
+          limits: { cpu: '500', memory: '512' } // 默认值
+        },
+        imagePullPolicy: 'IfNotPresent',
+        command: '',
+        args: '',
+        volumeMounts: []
       }
     },
-    generateYamlFromForm(showMessage = false) {
-      const payload = {
-        apiVersion: 'v1',
-        kind: 'PersistentVolumeClaim',
+
+    // 添加容器
+    addContainer(type) {
+      this.allContainers.push(this.createContainer(type))
+    },
+
+    // 删除容器
+    removeContainer(id) {
+      const index = this.allContainers.findIndex(c => c.id === id)
+      if (index !== -1) {
+        this.allContainers.splice(index, 1)
+      }
+    },
+
+    // 生成YAML
+    generateYamlFromForm() {
+      const appName = this.createForm.metadata.name
+      const volumes = []
+
+      const addResourceUnit = (value, type) => {
+        if (!value || typeof value !== 'string') return undefined
+        if (type === 'cpu') {
+          return value.match(/m$/) ? value : `${value}m`
+        } else if (type === 'memory') {
+          return value.match(/(Mi|Gi)$/) ? value : `${value}Mi`
+        }
+        return value
+      }
+
+      const processContainer = (container) => {
+        const clean = { ...container }
+
+        clean.command = splitShellArgs(rest.command)
+clean.args = splitShellArgs(rest.args)
+
+        clean.resources = {
+          requests: {
+            cpu: addResourceUnit(container.resources?.requests?.cpu, 'cpu'),
+            memory: addResourceUnit(container.resources?.requests?.memory, 'memory')
+          },
+          limits: {
+            cpu: addResourceUnit(container.resources?.limits?.cpu, 'cpu'),
+            memory: addResourceUnit(container.resources?.limits?.memory, 'memory')
+          }
+        }
+
+        clean.ports = (container.ports || [])
+          .filter(p => p.containerPort)
+          .map(p => {
+            const portObj = {
+              containerPort: p.containerPort,
+              protocol: p.protocol || 'TCP'
+            }
+            if (p.name) portObj.name = p.name
+            if (p.hostPort) portObj.hostPort = p.hostPort
+            return portObj
+          })
+
+        if (clean.ports.length === 0) delete clean.ports
+
+        // 处理 PVC 挂载
+        if (Array.isArray(container.volumeMounts)) {
+          clean.volumeMounts = container.volumeMounts.map(m => {
+            const volumeName = `pvc-${m.pvcName}`
+            if (!volumes.find(v => v.name === volumeName)) {
+              volumes.push({
+                name: volumeName,
+                persistentVolumeClaim: {
+                  claimName: m.pvcName
+                }
+              })
+            }
+
+            return {
+              name: volumeName,
+              mountPath: m.mountPath,
+              readOnly: m.readOnly
+            }
+          })
+        }
+
+        return clean
+      }
+
+      const containers = this.allContainers
+        .filter(c => c.type === 'container' && c.name && c.image)
+        .map(processContainer)
+
+      const initContainers = this.allContainers
+        .filter(c => c.type === 'initContainer' && c.name && c.image)
+        .map(processContainer)
+
+      const deployment = {
+        apiVersion: 'apps/v1',
+        kind: 'Deployment',
         metadata: {
-          name: this.createForm.metadata.name,
+          name: appName,
           namespace: this.selectedNamespace
         },
-        spec: this.createForm.spec
+        spec: {
+          replicas: this.createForm.spec.replicas,
+          selector: {
+            matchLabels: { app: appName }
+          },
+          template: {
+            metadata: {
+              labels: { app: appName }
+            },
+            spec: {
+              containers,
+              ...(initContainers.length > 0 ? { initContainers } : {}),
+              ...(volumes.length > 0 ? { volumes } : {})
+            }
+          }
+        }
       }
-      this.createYamlContent = yaml.dump(payload)
-      this.$refs.createEditor?.editor?.setValue(this.createYamlContent)
-      if (showMessage) this.$message.success('已同步到 YAML 模式')
-      return this.createYamlContent
+
+      this.createYamlContent = yaml.dump(deployment)
+  this.$refs.createEditor?.editor?.setValue(this.createYamlContent)
     },
+
+    // 解析YAML到表单
     parseYamlToForm() {
       try {
         const parsed = yaml.load(this.createYamlContent)
+        const appName = parsed.metadata?.name || ''
+
         this.createForm = {
-          metadata: { name: parsed.metadata?.name || '' },
-          spec: parsed.spec || {}
+          metadata: { name: appName },
+          spec: {
+            replicas: parsed.spec?.replicas || 1
+          }
         }
+
+        this.allContainers = []
+
+        const containers = parsed.spec?.template?.spec?.containers || []
+        containers.forEach(c => {
+          this.allContainers.push({ ...this.createContainer('container'), ...c })
+        })
+
+        const initContainers = parsed.spec?.template?.spec?.initContainers || []
+        initContainers.forEach(c => {
+          this.allContainers.push({ ...this.createContainer('initContainer'), ...c })
+        })
+
         this.$message.success('已同步回表单模式')
       } catch (err) {
         this.$message.error('YAML 解析失败：' + err.message)
       }
     },
+
     onCreateDialogOpened() {
-      this.$nextTick(() => {
-        if (this.createTab === 'yaml') {
-          this.$refs.createEditor?.editor?.setValue(this.createYamlContent)
-        }
-      })
-    },
-    handleTabClick(tab) {
-      if (tab.name === 'yaml') {
-        this.$nextTick(() => {
-          this.$refs.createEditor?.editor?.setValue(this.createYamlContent)
-        })
+      if (this.createTab === 'yaml') {
+        this.generateYamlFromForm()
       }
     },
-    async submitCreatePVC() {
-      this.generateYamlFromForm(false)
-      let pvc
+    handleTabClick(tab) {
+      if (tab.name === 'yaml') this.generateYamlFromForm()
+      else this.parseYamlToForm()
+    },
+    submitCreateDeployment() {
+      this.generateYamlFromForm()
+      let parsed
       try {
-        pvc = yaml.load(this.createYamlContent)
+        parsed = yaml.load(this.createYamlContent)
       } catch (err) {
-        this.$message.error('YAML 格式错误：' + err.message)
+        this.$message.error('YAML格式错误: ' + err.message)
         return
       }
 
-      try {
-        await this.createDeployment({
-          wsName: this.selectedWorkspace,
-          nsName: this.selectedNamespace,
-          pvcName: pvc.metadata.name,
-          pvc
+      this.createDeployment({
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        deployName: parsed.metadata.name,
+        deploy: parsed
+      })
+        .then(() => {
+          this.$message.success('创建成功')
+          this.createDialogVisible = false
+          this.fetchdeployments()
         })
-        this.$message.success('创建成功')
-        this.createDialogVisible = false
-        this.fetchdeployments()
-      } catch (err) {
-        this.$message.error('创建失败')
-        console.error(err)
-      }
+        .catch(err => {
+          this.$message.error('创建失败')
+          console.error(err)
+        })
     },
     formatDate(dateStr) {
       if (!dateStr) return '-'
       return new Date(dateStr).toLocaleString()
     },
     async handleDelete(row) {
-      this.$confirm(`确认删除容器组 [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
+      this.$confirm(`确认无状态服务 [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
         await this.deleteDeployment({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, deployName: row.metadata.name })
         this.fetchdeployments()
         this.$message.success('删除成功')
@@ -385,6 +796,21 @@ export default {
           return 'info'
         default:
           return ''
+      }
+    },
+    // 获取PVC列表的方法
+    async fetchPVCs() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      try {
+        // 直接接收action返回的数据
+        this.pvcList = await this.getPersistentVolumeClaims({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace
+        })
+        console.log('获取到的pvc', this.pvcList) // 现在有数据了
+      } catch (error) {
+        console.error('获取PVC列表失败:', error)
+        this.pvcList = []
       }
     },
 
@@ -489,6 +915,116 @@ export default {
         return result.substring(0, 27) + '...'
       }
       return result
+    },
+    ensurePort(container) {
+      if (!Array.isArray(container.ports)) {
+        this.$set(container, 'ports', [{ containerPort: null }])
+      } else if (!container.ports[0]) {
+        this.$set(container.ports, 0, { containerPort: null })
+      }
+    },
+    addPort(container) {
+      if (!Array.isArray(container.ports)) {
+        this.$set(container, 'ports', [])
+      }
+
+      const protocol = 'TCP'
+      const index = container.ports.filter(p => p.protocol === protocol).length + 1
+      const defaultName = `${protocol.toLowerCase()}-${index}`
+
+      // 自动避免重复名称
+      const existingNames = new Set(container.ports.map(p => p.name))
+      let name = defaultName
+      let i = index
+      while (existingNames.has(name)) {
+        i++
+        name = `${protocol.toLowerCase()}-${i}`
+      }
+
+      container.ports.push({
+        name,
+        containerPort: 80,
+        // hostPort: 80,
+        protocol
+      })
+    },
+
+    removePort(container, index) {
+      container.ports.splice(index, 1)
+    },
+    onProtocolChange(container, index) {
+      const port = container.ports[index]
+      if (!port) return
+
+      const protocol = port.protocol || 'TCP'
+      const base = protocol.toLowerCase()
+
+      const existingNames = new Set(container.ports.map((p, i) => i !== index && p.name))
+      let i = 1
+      let name = `${base}-${i}`
+      while (existingNames.has(name)) {
+        i++
+        name = `${base}-${i}`
+      }
+
+      // 如果用户没自定义名称（当前是旧的自动名），则替换
+      if (!port.name || /^tcp-\d+$|^udp-\d+$/.test(port.name)) {
+        this.$set(port, 'name', name)
+      }
+    },
+    validatePorts(container) {
+      const names = new Set()
+      const ports = new Set()
+      for (const port of container.ports) {
+        if (!port.containerPort) {
+          this.$message.error('容器端口不能为空')
+          return false
+        }
+        if (ports.has(port.containerPort)) {
+          this.$message.error(`容器端口 ${port.containerPort} 重复`)
+          return false
+        }
+        ports.add(port.containerPort)
+
+        if (port.name) {
+          if (names.has(port.name)) {
+            this.$message.error(`端口名称 "${port.name}" 重复`)
+            return false
+          }
+          names.add(port.name)
+        }
+      }
+      return true
+    },
+    ensureResources(container) {
+      if (!container.resources) this.$set(container, 'resources', {})
+      if (!container.resources.requests) this.$set(container.resources, 'requests', {})
+      if (!container.resources.limits) this.$set(container.resources, 'limits', {})
+    },
+    addVolumeMount(container) {
+      if (!container.volumeMounts) {
+        this.$set(container, 'volumeMounts', [])
+      }
+      container.volumeMounts.push({
+        name: '', // 用于与 volumes 匹配
+        mountPath: '',
+        readOnly: false,
+        claimName: ''
+      })
+    },
+    removeVolumeMount(container, index) {
+      container.volumeMounts.splice(index, 1)
+    },
+    addMount(container) {
+      if (!container.volumeMounts) this.$set(container, 'volumeMounts', [])
+      container.volumeMounts.push({
+        pvcName: '',
+        mountPath: '',
+        readOnly: false
+      })
+    },
+    removeMount(container, index) {
+      container.volumeMounts.splice(index, 1)
     }
 
   }
@@ -496,6 +1032,37 @@ export default {
 </script>
 
 <style scoped>
+/* 容器管理样式 */
+.container-management {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.container-tabs {
+  flex: 1;
+}
+
+.container-actions {
+  margin-left: 20px;
+}
+
+.container-card {
+  margin-bottom: 20px;
+}
+
+.container-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.no-container {
+  margin: 20px 0;
+}
 .deployment-page {
   padding: 20px;
   display: flex;

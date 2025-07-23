@@ -19,7 +19,9 @@ const mutations = {
 const actions = {
   async getPersistentVolumeClaims({ commit }, { wsName, nsName }) {
     const res = await getPersistentVolumeClaims(wsName, nsName)
-    commit('SET_PVS', res.items?.items || [])
+    const pvcs = res.items?.items || [] // 提取数据
+    commit('SET_PVS', pvcs)
+    return pvcs // 关键：返回PVC列表给调用者
   },
 
   async getPersistentVolumeClaimsDetaile(_, { wsName, nsName, pvcName }) {
