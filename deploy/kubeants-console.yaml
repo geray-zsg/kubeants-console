@@ -13,7 +13,7 @@ data:
     server {
         listen 80;
         server_name localhost;
-        location /demo/ {
+        location /ka-console {
             # 使用 alias 替代 root，直接指向 dist 目录
             alias /usr/share/nginx/html/;  # 注意结尾的斜杠
             index index.html;
@@ -25,13 +25,13 @@ data:
             index index.html;
             try_files $uri /index.html;
         }
-        location /config.json {
-          alias /usr/share/nginx/html/config.json;
-          expires -1; # 禁止缓存
-        }
+        # location /config.json {
+        #   alias /usr/share/nginx/html/config.json;
+        #   expires -1; # 禁止缓存
+        # }
         # 新增：反向代理到后端 API
         location /gapi/ {
-            proxy_pass http://kubeants-apiserver.kubeants-system:8080; # 替换为实际后端地址
+            proxy_pass http://kubeants-apiserver.kubeants-system:80; # 替换为实际后端地址
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -73,7 +73,7 @@ spec:
             defaultMode: 420
       containers:
         - name: container-y2072s
-          image: 'registry.cn-hangzhou.aliyuncs.com/geray/kubeants-console:v1.1.16'
+          image: 'registry.cn-hangzhou.aliyuncs.com/geray/kubeants-console:v1.1.17'
           imagePullPolicy: Always
           env:
             - name: VUE_APP_BASE_API
@@ -84,7 +84,7 @@ spec:
               protocol: TCP
           resources:
             limits:
-              cpu: 500m
+              cpu: 100m
               memory: 512Mi
             requests:
               cpu: 100m

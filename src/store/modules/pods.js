@@ -3,7 +3,9 @@ import {
   getPodDetail,
   updatePod,
   createPod,
-  deletePod
+  deletePod,
+  getPodLogs,
+  downloadPodLogs
 } from '@/api/pods'
 
 const state = {
@@ -38,7 +40,16 @@ const actions = {
     console.log('前端传递删除pod的wsName：', wsName, '获取的ns', nsName, 'pod名称：', podName)
     const res = await deletePod(wsName, nsName, podName)
     return res
+  },
+  async getPodLogs(_, payload) {
+    return await getPodLogs(payload)
+  },
+  downloadPodLogs(_, payload) {
+    downloadPodLogs(payload)
   }
+  // generateExecWsUrl(_, payload) {
+  //   return generateExecWsUrl(payload)
+  // }
 }
 
 const getters = {

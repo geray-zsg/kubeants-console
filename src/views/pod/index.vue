@@ -65,11 +65,13 @@
             {{ formatDate(row.metadata.creationTimestamp) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="220">
+        <el-table-column label="操作" fixed="right" width="350" align="center">
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" text @click="handleView(row)">详情</el-button>
               <!-- <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button> -->
+              <el-button size="small" type="primary" @click="logView(row)">日志</el-button>
+              <el-button size="small" type="primary" @click="exec(row)">终端</el-button>
               <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
@@ -79,8 +81,8 @@
         </template>
       </el-table>
       <!-- 分页 -->
-            <!-- 增强的分页组件 -->
-            <el-pagination
+      <!-- 增强的分页组件 -->
+      <el-pagination
         background
         layout="total, sizes, prev, pager, next"
         :current-page="currentPage"
@@ -104,13 +106,46 @@
         />
       </div>
     </el-dialog>
+
+    <!-- 日志弹窗 -->
+    <el-dialog title="Pod 日志" :visible.sync="logDialogVisible" width="80%">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px">
+        <el-select v-model="selectedContainer" placeholder="选择容器" @change="handleContainerChange">
+          <el-option v-for="item in containers" :key="item" :label="item" :value="item" />
+        </el-select>
+        <el-button type="primary" icon="el-icon-refresh" @click="fetchLogText">刷新日志</el-button>
+      </div>
+      <!-- 下载按钮 -->
+      <el-button size="small" type="success" @click="downloadLogs">下载日志</el-button>
+
+      <el-input
+        v-model="logText"
+        type="textarea"
+        :rows="20"
+        resize="none"
+        readonly
+        style="margin-top: 10px"
+      />
+    </el-dialog>
+
+    <!-- 终端弹窗 -->
+    <el-dialog title="容器终端" :visible.sync="terminalDialogVisible" width="80%" @opened="onTerminalDialogOpen">
+      <el-select v-model="selectedContainer" placeholder="选择容器" @change="onContainerChange">
+        <el-option v-for="item in containers" :key="item" :label="item" :value="item" />
+      </el-select>
+      <div id="terminal" style="height: 400px; margin-top: 10px; background: black;" />
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+// import { generateExecWsUrl } from '@/api/pods'
+// import { getToken } from '@/utils/auth' // get token from cookie
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
+import { Terminal } from 'xterm'
+import 'xterm/css/xterm.css'
 
 export default {
   components: { MonacoEditor },
@@ -134,7 +169,17 @@ export default {
       selectedPods: [],
       pageSize: 10,
       currentPage: 1,
-      selectedStatus: ''
+      selectedStatus: '',
+      logDialogVisible: false,
+      terminalDialogVisible: false,
+      logText: '',
+      containers: [],
+      selectedContainer: '',
+      currentPod: null,
+      terminal: null,
+      socket: null,
+      // hasInitializedTerminal: false // 初始化表示（容器终端）
+      terminalInitialized: false // 新增标记
     }
   },
   computed: {
@@ -186,7 +231,8 @@ export default {
       'getPod',
       'getPodDetail',
       'createPod',
-      'deletePod'
+      'deletePod',
+      'getPodLogs'
     ]),
     // 新增分页大小改变处理方法
     handleSizeChange(size) {
@@ -378,6 +424,144 @@ export default {
     handleStatusFilterChange(val) {
       this.selectedStatus = val
       this.currentPage = 1
+    },
+    async logView(row) {
+      const containers = row.spec.containers?.map(c => c.name) || []
+      this.currentPod = row
+      this.containers = containers
+      this.selectedContainer = containers[0] || ''
+      this.logDialogVisible = true
+      this.fetchLogText()
+    },
+
+    async exec(row) {
+      const containers = row.spec.containers?.map(c => c.name) || []
+      this.currentPod = row
+      this.containers = containers
+      this.selectedContainer = containers[0] || ''
+      this.terminalDialogVisible = true
+      this.$nextTick(() => {
+        this.initTerminal()
+      })
+    },
+
+    async fetchLogText() {
+      if (!this.currentPod || !this.selectedContainer) return
+      const res = await this.getPodLogs({
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        podName: this.currentPod.metadata.name,
+        container: this.selectedContainer
+      })
+      this.logText = typeof res === 'string' ? res : res?.data || '暂无日志'
+    },
+
+    handleContainerChange() {
+      this.fetchLogText()
+    },
+    onTerminalDialogOpen() {
+      if (this.containers.length > 0) {
+        this.selectedContainer = this.containers[0]
+        this.terminalInitialized = false // 每次打开弹窗都要重置
+        setTimeout(() => {
+          this.initTerminal()
+          this.terminalInitialized = true
+        }, 100)
+      }
+    },
+    onContainerChange() {
+      if (this.terminalInitialized) {
+        this.initTerminal()
+      }
+    },
+    async initTerminal() {
+      console.log('准备进入容器终端...')
+
+      if (!this.selectedContainer) {
+        this.$message.warning('未选择容器，无法连接终端')
+        return
+      }
+
+      const token = this.$store.getters.token
+      const encodedToken = encodeURIComponent(token)
+      // VUE_APP_BASE_API
+      const baseApi = process.env.VUE_APP_BASE_API.replace(/^https?:\/\//, '')
+      const url = `ws://${baseApi}/gapi/cluster/local/workspace/${this.selectedWorkspace}/api/v1/namespaces/${this.selectedNamespace}/pods/${this.currentPod.metadata.name}/exec?container=${this.selectedContainer}&command=/bin/sh&token=${encodedToken}`
+      // const url = `ws://${location.hostname}:8080/gapi/cluster/local/workspace/${this.selectedWorkspace}/api/v1/namespaces/${this.selectedNamespace}/pods/${this.currentPod.metadata.name}/exec?container=${this.selectedContainer}&command=/bin/sh&token=${encodedToken}`
+
+      console.log('容器终端拼接后的url：', url)
+
+      // 清理旧 terminal 和 socket
+      if (this.terminal) {
+        this.terminal.dispose()
+      }
+      if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
+        this.socket.close()
+      }
+
+      const term = new Terminal({
+        fontSize: 14,
+        cursorBlink: true,
+        theme: {
+          background: '#000000',
+          foreground: '#ffffff'
+        }
+      })
+
+      this.terminal = term
+      term.open(document.getElementById('terminal'))
+
+      const socket = new WebSocket(url)
+      this.socket = socket
+
+      socket.onopen = () => {
+        console.log('终端连接成功')
+        term.focus()
+        term.writeln('Welcome to Kubernetes Container Terminal')
+
+        term.onData(data => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(data)
+          } else {
+            term.writeln('\r\n连接尚未准备就绪...')
+          }
+        })
+      }
+
+      socket.onmessage = e => {
+        term.write(e.data)
+      }
+
+      socket.onerror = err => {
+        console.error('终端连接失败', err)
+        term.writeln('\r\n连接失败，请检查容器状态或网络')
+        this.$message.error('容器终端连接失败')
+      }
+
+      socket.onclose = () => {
+        // console.log('终端连接关闭')
+        // term.writeln('\r\n连接已关闭')
+        // this.$message.info('终端已关闭')
+      }
+    },
+
+    beforeDestroy() {
+    this.terminal?.dispose()
+    this.socket?.close()
+    },
+    downloadLogs() {
+      const pod = this.currentPod
+      const container = this.selectedContainer
+      if (!pod || !container) {
+        this.$message.warning('缺少 Pod 或容器信息')
+        return
+      }
+      this.$store.dispatch('pods/downloadPodLogs', {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        podName: pod.metadata.name,
+        container
+      })
     }
   }
 }
