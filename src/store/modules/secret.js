@@ -19,7 +19,9 @@ const mutations = {
 const actions = {
   async getSecrets({ commit }, { wsName, nsName }) {
     const res = await getSecrets(wsName, nsName)
-    commit('SET_SECRETS', res.items?.items || [])
+    const secretList = res.items?.items || []
+    commit('SET_SECRETS', secretList)
+    return secretList
   },
   async getSecretDetail(_, { wsName, nsName, secretName }) {
     const res = await getSecretDetail(wsName, nsName, secretName)

@@ -23,3 +23,13 @@ export function joinShellArgs(input) {
   }
   return input || ''
 }
+
+/**
+   * 字符串内容转换为小写
+   * @param {string} input
+   * @returns {string}
+   */
+export function normalizeMountType(type) {
+  if (type === 'configMap') return 'configmap' // 全小写，合法
+  return type.toLowerCase()
+}

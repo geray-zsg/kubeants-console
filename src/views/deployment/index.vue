@@ -336,25 +336,112 @@
                   />
                 </el-form-item>
 
-                <el-form-item label="挂载卷（PVC）">
-                  <div v-for="(mount, mIndex) in container.volumeMounts" :key="mIndex" style="margin-bottom: 10px;">
-                    <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 200px; margin-right: 10px">
-                      <el-option
-                        v-for="pvc in pvcList"
-                        :key="pvc.metadata.name"
-                        :label="pvc.metadata.name"
-                        :value="pvc.metadata.name"
-                      />
+                <el-form-item label="挂载卷">
+                  <div
+                    v-for="(mount, mIndex) in container.volumeMounts"
+                    :key="mIndex"
+                    style="margin-bottom: 10px; display: flex; gap: 10px"
+                  >
+                    <!-- 挂载类型 -->
+                    <el-select v-model="mount.mountType" placeholder="挂载类型" style="width: 120px">
+                      <el-option label="PVC" value="pvc" />
+                      <el-option label="ConfigMap" value="configMap" />
+                      <el-option label="Secret" value="secret" />
                     </el-select>
-                    <el-input v-model="mount.mountPath" placeholder="挂载路径" style="width: 200px; margin-right: 10px" />
-                    <el-select v-model="mount.readOnly" placeholder="挂载模式" style="width: 140px">
+
+                    <!-- PVC -->
+                    <template v-if="mount.mountType === 'pvc'">
+                      <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 160px">
+                        <el-option
+                          v-for="pvc in pvcList"
+                          :key="pvc.metadata.name"
+                          :label="pvc.metadata.name"
+                          :value="pvc.metadata.name"
+                        />
+                      </el-select>
+                    </template>
+
+                    <!-- ConfigMap -->
+                    <template v-else-if="mount.mountType === 'configMap'">
+                      <el-select
+                        v-model="mount.configMapName"
+                        placeholder="选择 ConfigMap"
+                        style="width: 160px"
+                        @change="updateAvailableKeys"
+                      >
+                        <el-option
+                          v-for="cm in configMapList"
+                          :key="cm.metadata.name"
+                          :label="cm.metadata.name"
+                          :value="cm.metadata.name"
+                        />
+                      </el-select>
+
+                      <el-select
+                        v-model="mount.key"
+                        placeholder="键名（key）"
+                        style="width: 120px"
+                        @change="mount.subPath = mount.key"
+                      >
+                        <el-option
+                          v-for="key in mount.availableKeys || []"
+                          :key="key"
+                          :label="key"
+                          :value="key"
+                        />
+                      </el-select>
+
+                      <el-input v-model="mount.subPath" placeholder="子路径（subPath）" style="width: 120px" />
+                    </template>
+
+                    <!-- Secret -->
+                    <template v-else-if="mount.mountType === 'secret'">
+                      <el-select
+                        v-model="mount.secretName"
+                        placeholder="选择 Secret"
+                        style="width: 160px"
+                        @change="updateAvailableKeys"
+                      >
+                        <el-option
+                          v-for="secret in secretList"
+                          :key="secret.metadata.name"
+                          :label="secret.metadata.name"
+                          :value="secret.metadata.name"
+                        />
+                      </el-select>
+
+                      <el-select
+                        v-model="mount.key"
+                        placeholder="键名（key）"
+                        style="width: 120px"
+                        @change="mount.subPath = mount.key"
+                      >
+                        <el-option
+                          v-for="key in mount.availableKeys || []"
+                          :key="key"
+                          :label="key"
+                          :value="key"
+                        />
+                      </el-select>
+
+                      <el-input v-model="mount.subPath" placeholder="子路径（subPath）" style="width: 120px" />
+                    </template>
+
+                    <!-- 挂载路径 -->
+                    <el-input v-model="mount.mountPath" placeholder="挂载路径" style="width: 200px" />
+
+                    <!-- 挂载模式 -->
+                    <el-select v-model="mount.readOnly" placeholder="挂载模式" style="width: 120px">
                       <el-option label="读写" :value="false" />
                       <el-option label="只读" :value="true" />
                     </el-select>
+
                     <el-button icon="el-icon-delete" type="text" @click="removeMount(container, mIndex)" />
                   </div>
+
                   <el-button type="primary" size="mini" @click="addMount(container)">+ 添加挂载</el-button>
                 </el-form-item>
+
               </el-card>
             </div>
 
@@ -395,7 +482,7 @@
 import { mapGetters, mapActions } from 'vuex'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
-import { joinShellArgs, splitShellArgs } from '@/utils/shellArgUtils'
+import { joinShellArgs, splitShellArgs, normalizeMountType } from '@/utils/shellArgUtils'
 import { safeParseForm } from '@/utils/deployParser'
 
 export default {
@@ -441,6 +528,8 @@ export default {
       containerTab: 'container',
       containerIdCounter: 0,
       pvcList: [],
+      configMapList: [],
+      secretList: [],
       lastYamlContent: '', // 存储上一次从表单生成的 YAML
       isYamlModified: false
     }
@@ -504,6 +593,8 @@ export default {
     ...mapActions('workspace', ['getNamespaces']),
     ...mapActions('storageclass', ['getStorageclass']),
     ...mapActions('persistentvolumeclaims', ['getPersistentVolumeClaims']),
+    ...mapActions('configmap', ['getConfigmap']),
+    ...mapActions('secrets', ['getSecrets']),
     ...mapActions('deployments', [
       'getDeployment',
       'getDeploymentDetail',
@@ -511,13 +602,39 @@ export default {
       'deleteDeployment'
     ]),
 
+    updateAvailableKeys() {
+      this.allContainers.forEach(container => {
+        if (!Array.isArray(container.volumeMounts)) return
+        container.volumeMounts.forEach(mount => {
+          if (mount.mountType === 'configMap') {
+            const cm = this.configMapList.find(c => c.metadata.name === mount.configMapName)
+            this.$set(mount, 'availableKeys', cm ? Object.keys(cm.data || {}) : [])
+          } else if (mount.mountType === 'secret') {
+            const sec = this.secretList.find(s => s.metadata.name === mount.secretName)
+            this.$set(mount, 'availableKeys', sec ? Object.keys(sec.data || {}) : [])
+          } else {
+            this.$set(mount, 'availableKeys', [])
+          }
+        })
+      })
+    },
+
     // 容器映射，yaml切换到表单模式时需要映射到表单的数据内容
-    pushContainerFromYaml(container, type = 'container') {
-      const mounts = (container.volumeMounts || []).map(m => ({
-        pvcName: m.name,
-        mountPath: m.mountPath,
-        readOnly: m.readOnly
-      }))
+    pushContainerFromYaml(container, type = 'container', volumes = []) {
+      const mounts = (container.volumeMounts || []).map(m => {
+        const pvc = volumes.find(v => v.name === m.name && v.persistentVolumeClaim)
+        const configMap = volumes.find(v => v.name === m.name && v.configMap)
+        const secret = volumes.find(v => v.name === m.name && v.secret)
+
+        return {
+          mountType: pvc ? 'pvc' : configMap ? 'configMap' : secret ? 'secret' : 'unknown',
+          pvcName: pvc?.persistentVolumeClaim?.claimName || '',
+          configMapName: configMap?.configMap?.name || '',
+          secretName: secret?.secret?.secretName || '',
+          mountPath: m.mountPath,
+          readOnly: m.readOnly
+        }
+      })
 
       const mapped = {
         id: ++this.containerIdCounter,
@@ -570,6 +687,8 @@ export default {
 
       // 添加PVC列表获取
       this.fetchPVCs()
+      this.fetchCMs()
+      this.fetchSecrets()
     },
 
     // 创建容器对象
@@ -656,24 +775,45 @@ export default {
 
         if (clean.ports.length === 0) delete clean.ports
 
-        // 处理 PVC 挂载
+        // 处理挂载卷
         if (Array.isArray(container.volumeMounts)) {
-          clean.volumeMounts = container.volumeMounts.map(m => {
-            const volumeName = `${m.pvcName}`
+          clean.volumeMounts = []
+
+          container.volumeMounts.forEach(m => {
+            const volumeName = `${normalizeMountType(m.mountType)}-${m.pvcName || m.configMapName || m.secretName}`
+
+            // 添加到 volumes 列表（避免重复）
             if (!volumes.find(v => v.name === volumeName)) {
-              volumes.push({
-                name: volumeName,
-                persistentVolumeClaim: {
-                  claimName: m.pvcName
+              const volume = { name: volumeName }
+
+              if (m.mountType === 'pvc') {
+                volume.persistentVolumeClaim = { claimName: m.pvcName }
+              } else if (m.mountType === 'configMap') {
+                volume.configMap = {
+                  name: m.configMapName
                 }
-              })
+              } else if (m.mountType === 'secret') {
+                volume.secret = {
+                  secretName: m.secretName
+                }
+              }
+
+              volumes.push(volume)
             }
 
-            return {
+            // 区分整卷挂载 vs 精细挂载
+            const vm = {
               name: volumeName,
               mountPath: m.mountPath,
               readOnly: m.readOnly
             }
+
+            // 精细挂载：ConfigMap/Secret 且 key 存在
+            if ((m.mountType === 'configMap' || m.mountType === 'secret') && m.key) {
+              vm.subPath = m.subPath || m.key // 默认子路径使用 key
+            }
+
+            clean.volumeMounts.push(vm)
           })
         }
 
@@ -745,21 +885,6 @@ export default {
         const initContainers = parsed?.spec?.template?.spec?.initContainers || []
         containers.forEach(c => this.pushContainerFromYaml(c, 'container'))
         initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer'))
-
-        // this.createForm.metadata.name = parsed?.metadata?.name || ''
-        // this.createForm.spec.replicas = parsed?.spec?.replicas || 1
-        // this.createForm.spec.selector = parsed?.spec?.selector || { matchLabels: { app: '' }}
-        // this.createForm.spec.template.metadata.labels = parsed?.spec?.template?.metadata?.labels || { app: '' }
-        // this.selectedNamespace = parsed?.metadata?.namespace || this.selectedNamespace
-
-        // // 清空 allContainers，保留响应式引用
-        // this.allContainers.splice(0, this.allContainers.length)
-
-        // const containers = parsed?.spec?.template?.spec?.containers || []
-        // const initContainers = parsed?.spec?.template?.spec?.initContainers || []
-        // containers.forEach(c => this.pushContainerFromYaml(c, 'container'))
-        // initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer'))
-
         this.$message.success('已同步回表单模式')
       } catch (err) {
         this.$message.error('YAML 解析失败：' + err.message)
@@ -861,7 +986,7 @@ export default {
           return ''
       }
     },
-    // 获取PVC列表的方法
+    // 获取PVC、configmap和secret列表
     async fetchPVCs() {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
       try {
@@ -874,6 +999,27 @@ export default {
       } catch (error) {
         console.error('获取PVC列表失败:', error)
         this.pvcList = []
+      }
+    },
+
+    async fetchCMs() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      try {
+        this.configMapList = await this.getConfigmap({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+        console.log('获取到的configmap', this.configMapList)
+      } catch (error) {
+        console.error('获取configmap列表失败:', error)
+        this.configMapList = []
+      }
+    },
+    async fetchSecrets() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      try {
+        this.secretList = await this.getSecrets({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+        console.log('获取到的secret', this.secretList)
+      } catch (error) {
+        console.error('获取secret列表失败:', error)
+        this.secretList = []
       }
     },
 
@@ -1069,10 +1215,15 @@ export default {
         this.$set(container, 'volumeMounts', [])
       }
       container.volumeMounts.push({
-        name: '', // 用于与 volumes 匹配
-        mountPath: '',
+        mountType: 'configMap' | 'secret' | 'pvc', // pvc | configMap | secret
+        mountPath: '', // 容器内的路径（完整路径，支持 /etc/foo/key.txt）
+        key: '', // 仅对 configMap/secret 有效，要挂载的键名
+        subPath: '', // 最终文件名（可自动设为 key）
         readOnly: false,
-        claimName: ''
+        pvcName: '',
+        configMapName: '',
+        secretName: '',
+        availableKeys: [] // 用于存储可选的 key 下拉
       })
     },
     removeVolumeMount(container, index) {
@@ -1080,11 +1231,18 @@ export default {
     },
     addMount(container) {
       if (!container.volumeMounts) this.$set(container, 'volumeMounts', [])
-      container.volumeMounts.push({
+      const newMount = {
+        mountType: 'pvc',
         pvcName: '',
+        configMapName: '',
+        secretName: '',
         mountPath: '',
-        readOnly: false
-      })
+        key: '',
+        subPath: '',
+        readOnly: false,
+        availableKeys: []
+      }
+      container.volumeMounts.push(newMount)
     },
     removeMount(container, index) {
       container.volumeMounts.splice(index, 1)

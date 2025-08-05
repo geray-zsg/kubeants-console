@@ -20,7 +20,9 @@ const actions = {
   async getConfigmap({ commit }, { wsName, nsName }) {
     const res = await getConfigmap(wsName, nsName)
     // ✅ 正确获取嵌套数组
-    commit('SET_CM', res.items?.items || [])
+    const cmList = res.items?.items || []
+    commit('SET_CM', cmList)
+    return cmList
   },
   async getConfigmapDetail(_, { wsName, nsName, cmName }) {
     console.log('接收到的cmName是', cmName)
