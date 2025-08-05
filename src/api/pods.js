@@ -39,7 +39,7 @@ export function deletePod(wsName, nsName, podName) {
 
 export function getPodLogs({ wsName, nsName, podName, container, tailLines = 1000 }) {
   return request({
-    url: `/gapi/cluster/local/workspace/${wsName}/api/v1/namespaces/${nsName}/pods/${podName}/log`,
+    url: `/gapi/cluster/local/workspace/${wsName}/api/v1/namespaces/${nsName}/pod/${podName}/log`,
     method: 'get',
     params: { container, tailLines, follow: false }
   })
@@ -47,7 +47,7 @@ export function getPodLogs({ wsName, nsName, podName, container, tailLines = 100
 
 export function downloadPodLogs({ wsName, nsName, podName, container, tailLines = 100000 }) {
   return request({
-    url: `/gapi/cluster/local/workspace/${wsName}/api/v1/namespaces/${nsName}/pods/${podName}/log`,
+    url: `/gapi/cluster/local/workspace/${wsName}/api/v1/namespaces/${nsName}/pod/${podName}/log`,
     method: 'get',
     params: {
       container,

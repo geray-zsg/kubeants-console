@@ -486,7 +486,7 @@ export default {
       const encodedToken = encodeURIComponent(token)
       // VUE_APP_BASE_API
       const baseApi = process.env.VUE_APP_BASE_API.replace(/^https?:\/\//, '')
-      const url = `ws://${baseApi}/gapi/cluster/local/workspace/${this.selectedWorkspace}/api/v1/namespaces/${this.selectedNamespace}/pods/${this.currentPod.metadata.name}/exec?container=${this.selectedContainer}&command=/bin/sh&token=${encodedToken}`
+      const url = `ws://${baseApi}/gapi/cluster/local/workspace/${this.selectedWorkspace}/api/v1/namespaces/${this.selectedNamespace}/pod/${this.currentPod.metadata.name}/exec?container=${this.selectedContainer}&command=/bin/sh&token=${encodedToken}`
       // const url = `ws://${location.hostname}:8080/gapi/cluster/local/workspace/${this.selectedWorkspace}/api/v1/namespaces/${this.selectedNamespace}/pods/${this.currentPod.metadata.name}/exec?container=${this.selectedContainer}&command=/bin/sh&token=${encodedToken}`
 
       console.log('容器终端拼接后的url：', url)

@@ -337,7 +337,7 @@
                 </el-form-item>
 
                 <el-form-item label="挂载卷（PVC）">
-                  <div v-for="(mount, index) in container.volumeMounts" :key="index" style="margin-bottom: 10px;">
+                  <div v-for="(mount, mIndex) in container.volumeMounts" :key="mIndex" style="margin-bottom: 10px;">
                     <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 200px; margin-right: 10px">
                       <el-option
                         v-for="pvc in pvcList"
@@ -351,7 +351,7 @@
                       <el-option label="读写" :value="false" />
                       <el-option label="只读" :value="true" />
                     </el-select>
-                    <el-button icon="el-icon-delete" type="text" @click="removeMount(container, index)" />
+                    <el-button icon="el-icon-delete" type="text" @click="removeMount(container, mIndex)" />
                   </div>
                   <el-button type="primary" size="mini" @click="addMount(container)">+ 添加挂载</el-button>
                 </el-form-item>
@@ -395,7 +395,8 @@
 import { mapGetters, mapActions } from 'vuex'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
-import { joinShellArgs } from '@/utils/shellArgUtils'
+import { joinShellArgs, splitShellArgs } from '@/utils/shellArgUtils'
+import { safeParseForm } from '@/utils/deployParser'
 
 export default {
   components: { MonacoEditor },
@@ -439,7 +440,9 @@ export default {
       createYamlContent: '',
       containerTab: 'container',
       containerIdCounter: 0,
-      pvcList: []
+      pvcList: [],
+      lastYamlContent: '', // 存储上一次从表单生成的 YAML
+      isYamlModified: false
     }
   },
   computed: {
@@ -508,6 +511,32 @@ export default {
       'deleteDeployment'
     ]),
 
+    // 容器映射，yaml切换到表单模式时需要映射到表单的数据内容
+    pushContainerFromYaml(container, type = 'container') {
+      const mounts = (container.volumeMounts || []).map(m => ({
+        pvcName: m.name,
+        mountPath: m.mountPath,
+        readOnly: m.readOnly
+      }))
+
+      const mapped = {
+        id: ++this.containerIdCounter,
+        type,
+        name: container.name || '',
+        image: container.image || '',
+        imagePullPolicy: container.imagePullPolicy || 'IfNotPresent',
+        ports: container.ports || [],
+        resources: container.resources || {
+          requests: { cpu: '100', memory: '128' },
+          limits: { cpu: '500', memory: '512' }
+        },
+        volumeMounts: mounts,
+        command: joinShellArgs(container.command),
+        args: joinShellArgs(container.args)
+      }
+
+      this.allContainers.push(mapped)
+    },
     async onWorkspaceChange() {
       this.selectedNamespace = ''
       await this.getNamespaces(this.selectedWorkspace)
@@ -577,6 +606,10 @@ export default {
 
     // 生成YAML
     generateYamlFromForm() {
+      if (this.isYamlModified) {
+        console.warn('跳过 YAML 同步：用户改动了 YAML 不应覆盖')
+        return
+      }
       const appName = this.createForm.metadata.name
       const volumes = []
 
@@ -592,9 +625,11 @@ export default {
 
       const processContainer = (container) => {
         const clean = { ...container }
+        delete clean.id
+        delete clean.type
 
-        clean.command = splitShellArgs(rest.command)
-clean.args = splitShellArgs(rest.args)
+        clean.command = splitShellArgs(container.command)
+        clean.args = splitShellArgs(container.args)
 
         clean.resources = {
           requests: {
@@ -624,7 +659,7 @@ clean.args = splitShellArgs(rest.args)
         // 处理 PVC 挂载
         if (Array.isArray(container.volumeMounts)) {
           clean.volumeMounts = container.volumeMounts.map(m => {
-            const volumeName = `pvc-${m.pvcName}`
+            const volumeName = `${m.pvcName}`
             if (!volumes.find(v => v.name === volumeName)) {
               volumes.push({
                 name: volumeName,
@@ -685,31 +720,50 @@ clean.args = splitShellArgs(rest.args)
     // 解析YAML到表单
     parseYamlToForm() {
       try {
-        const parsed = yaml.load(this.createYamlContent)
-        const appName = parsed.metadata?.name || ''
+        // ✅ 核心修正：从 monaco-editor 中取值，而不是 this.createYamlContent
+        const editorValue = this.$refs.createEditor?.editor?.getValue?.()
+        const parsed = yaml.load(editorValue)
 
+        this.isYamlModified = false
+        this.lastYamlContent = editorValue // ⚠️ 同步到最新内容
+        this.createYamlContent = editorValue // 🔁 保持内容同步，避免切回时跳变
+
+        const form = safeParseForm(parsed)
+
+        // 同步 namespace 到页面的绑定变量
+        this.selectedNamespace = form.namespace || this.selectedNamespace
+
+        // 替换 createForm
         this.createForm = {
-          metadata: { name: appName },
-          spec: {
-            replicas: parsed.spec?.replicas || 1
-          }
+          metadata: form.metadata,
+          spec: form.spec
         }
 
-        this.allContainers = []
+        // 清空容器列表再回填
+        this.allContainers.splice(0, this.allContainers.length)
+        const containers = parsed?.spec?.template?.spec?.containers || []
+        const initContainers = parsed?.spec?.template?.spec?.initContainers || []
+        containers.forEach(c => this.pushContainerFromYaml(c, 'container'))
+        initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer'))
 
-        const containers = parsed.spec?.template?.spec?.containers || []
-        containers.forEach(c => {
-          this.allContainers.push({ ...this.createContainer('container'), ...c })
-        })
+        // this.createForm.metadata.name = parsed?.metadata?.name || ''
+        // this.createForm.spec.replicas = parsed?.spec?.replicas || 1
+        // this.createForm.spec.selector = parsed?.spec?.selector || { matchLabels: { app: '' }}
+        // this.createForm.spec.template.metadata.labels = parsed?.spec?.template?.metadata?.labels || { app: '' }
+        // this.selectedNamespace = parsed?.metadata?.namespace || this.selectedNamespace
 
-        const initContainers = parsed.spec?.template?.spec?.initContainers || []
-        initContainers.forEach(c => {
-          this.allContainers.push({ ...this.createContainer('initContainer'), ...c })
-        })
+        // // 清空 allContainers，保留响应式引用
+        // this.allContainers.splice(0, this.allContainers.length)
+
+        // const containers = parsed?.spec?.template?.spec?.containers || []
+        // const initContainers = parsed?.spec?.template?.spec?.initContainers || []
+        // containers.forEach(c => this.pushContainerFromYaml(c, 'container'))
+        // initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer'))
 
         this.$message.success('已同步回表单模式')
       } catch (err) {
         this.$message.error('YAML 解析失败：' + err.message)
+        console.error(err)
       }
     },
 
@@ -719,8 +773,17 @@ clean.args = splitShellArgs(rest.args)
       }
     },
     handleTabClick(tab) {
-      if (tab.name === 'yaml') this.generateYamlFromForm()
-      else this.parseYamlToForm()
+      if (tab.name === 'yaml') {
+        this.generateYamlFromForm()
+        this.lastYamlContent = this.createYamlContent
+        this.isYamlModified = false
+      } else {
+        const editorValue = this.$refs.createEditor?.editor?.getValue?.()
+        if (editorValue !== this.lastYamlContent) {
+          this.parseYamlToForm()
+          this.isYamlModified = true
+        }
+      }
     },
     submitCreateDeployment() {
       this.generateYamlFromForm()
