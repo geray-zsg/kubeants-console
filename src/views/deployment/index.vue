@@ -11,57 +11,24 @@
         <el-option v-for="ns in filteredNamespaces" :key="ns.metadata.name" :label="ns.metadata.name" :value="ns.metadata.name" />
       </el-select>
 
-      <el-input
-        v-model="searchText"
-        placeholder="搜索无状态服务"
-        style="margin-left: 20px; width: 300px"
-        clearable
-      />
-      <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
-        创建无状态服务
-      </el-button>
+      <el-input v-model="searchText" placeholder="搜索无状态服务" style="margin-left: 20px; width: 300px" clearable />
+      <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">创建无状态服务</el-button>
     </div>
 
     <!-- 操作栏：批量删除 + 状态筛选 -->
     <div class="actions">
-      <el-button
-        type="danger"
-        size="mini"
-        :disabled="selectedDeployments.length === 0"
-        @click="handleBatchDelete"
-      >
-        批量删除
-      </el-button>
+      <el-button type="danger" size="mini" :disabled="selectedDeployments.length === 0" @click="handleBatchDelete">批量删除</el-button>
 
-      <el-select
-        v-model="selectedStatus"
-        placeholder="筛选状态"
-        clearable
-        style="width: 180px"
-        @change="handleStatusFilterChange"
-      >
-        <el-option
-          v-for="(count, status) in statusCounts"
-          :key="status"
-          :label="`${status} (${count})`"
-          :value="status"
-        />
+      <el-select v-model="selectedStatus" placeholder="筛选状态" clearable style="width: 180px" @change="handleStatusFilterChange">
+        <el-option v-for="(count, status) in statusCounts" :key="status" :label="`${status} (${count})`" :value="status" />
       </el-select>
     </div>
 
     <div class="table-container">
-      <!-- 优化后的表格 -->
-      <el-table
-        v-loading="loading"
-        :data="pagedDeployments || []"
-        border
-        style="flex: 1; overflow: auto"
-        @selection-change="handleSelectionChange"
-      >
+      <el-table v-loading="loading" :data="pagedDeployments || []" border style="flex: 1; overflow: auto" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="metadata.name" label="名称" width="220" />
 
-        <!-- 状态列优化 -->
         <el-table-column label="状态" width="120">
           <template v-slot="{ row }">
             <el-tag :type="getDeploymentStatusTagType(row)" size="small">
@@ -70,7 +37,6 @@
           </template>
         </el-table-column>
 
-        <!-- 新增副本数列 -->
         <el-table-column label="副本" width="120">
           <template v-slot="{ row }">
             <span class="replica-count">
@@ -79,7 +45,6 @@
           </template>
         </el-table-column>
 
-        <!-- 新增就绪状态列 -->
         <el-table-column label="就绪" width="120">
           <template v-slot="{ row }">
             <span class="ready-count">
@@ -111,10 +76,11 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" fixed="right" width="180">
+        <el-table-column label="操作" fixed="right" width="220">
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" text @click="handleView(row)">详情</el-button>
+              <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
               <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
@@ -126,38 +92,17 @@
       </el-table>
 
       <!-- 增强的分页组件 -->
-      <el-pagination
-        background
-        layout="total, sizes, prev, pager, next"
-        :current-page="currentPage"
-        :page-sizes="[10, 20, 50, 100, 500]"
-        :page-size="pageSize"
-        :total="filteredDeploymentsByStatus.length"
-        style="margin-top: 16px; text-align: right"
-        @current-change="handlePageChange"
-        @size-change="handleSizeChange"
-      />
+      <el-pagination background layout="total, sizes, prev, pager, next" :current-page="currentPage" :page-sizes="[10, 20, 50, 100, 500]" :page-size="pageSize" :total="filteredDeploymentsByStatus.length" style="margin-top: 16px; text-align: right" @current-change="handlePageChange" @size-change="handleSizeChange" />
     </div>
 
     <el-dialog title="无状态服务详情" :visible.sync="showYamlDialog" width="70%" @opened="refreshMonacoEditor">
       <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
-        <monaco-editor
-          ref="yamlViewer"
-          v-model="yamlContent"
-          language="yaml"
-          theme="vs-dark"
-          :options="DetailditorOptions"
-        />
+        <monaco-editor ref="yamlViewer" v-model="yamlContent" language="yaml" theme="vs-dark" :options="DetailditorOptions" />
       </div>
     </el-dialog>
 
     <!-- 创建对话框 -->
-    <el-dialog
-      title="创建无状态服务"
-      :visible.sync="createDialogVisible"
-      width="70%"
-      @opened="onCreateDialogOpened"
-    >
+    <el-dialog :title="isEditMode ? '编辑无状态服务' : '创建无状态服务'" :visible.sync="createDialogVisible" width="70%" @opened="onCreateDialogOpened">
       <el-tabs v-model="createTab" @tab-click="handleTabClick">
         <el-tab-pane label="表单模式" name="form">
           <el-form :model="createForm" label-width="120px">
@@ -472,7 +417,8 @@
 
       <span slot="footer" class="dialog-footer">
         <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitCreateDeployment">创建</el-button>
+        <!-- <el-button type="primary" @click="submitCreateDeployment">创建</el-button> -->
+        <el-button type="primary" @click="handleSubmit">{{ isEdit ? '更新' : '创建' }}</el-button>
       </span>
     </el-dialog>
   </div>
@@ -489,6 +435,8 @@ export default {
   components: { MonacoEditor },
   data() {
     return {
+      isEdit: false,
+      isEditMode: false,
       selectedWorkspace: '',
       selectedNamespace: '',
       searchText: '',
@@ -599,6 +547,7 @@ export default {
       'getDeployment',
       'getDeploymentDetail',
       'createDeployment',
+      'updateDeployment',
       'deleteDeployment'
     ]),
 
@@ -620,19 +569,77 @@ export default {
     },
 
     // 容器映射，yaml切换到表单模式时需要映射到表单的数据内容
+    // pushContainerFromYaml(container, type = 'container', volumes = []) {
+    //   const mounts = (container.volumeMounts || []).map(m => {
+    //     const pvc = volumes.find(v => v.name === m.name && v.persistentVolumeClaim)
+    //     const configMap = volumes.find(v => v.name === m.name && v.configMap)
+    //     const secret = volumes.find(v => v.name === m.name && v.secret)
+
+    //     return {
+    //       mountType: pvc ? 'pvc' : configMap ? 'configMap' : secret ? 'secret' : 'unknown',
+    //       pvcName: pvc?.persistentVolumeClaim?.claimName || '',
+    //       configMapName: configMap?.configMap?.name || '',
+    //       secretName: secret?.secret?.secretName || '',
+    //       mountPath: m.mountPath,
+    //       readOnly: m.readOnly
+    //     }
+    //   })
+
+    //   const mapped = {
+    //     id: ++this.containerIdCounter,
+    //     type,
+    //     name: container.name || '',
+    //     image: container.image || '',
+    //     imagePullPolicy: container.imagePullPolicy || 'IfNotPresent',
+    //     ports: container.ports || [],
+    //     resources: container.resources || {
+    //       requests: { cpu: '100', memory: '128' },
+    //       limits: { cpu: '500', memory: '512' }
+    //     },
+    //     volumeMounts: mounts,
+    //     command: joinShellArgs(container.command),
+    //     args: joinShellArgs(container.args)
+    //   }
+
+    //   this.allContainers.push(mapped)
+    // },
     pushContainerFromYaml(container, type = 'container', volumes = []) {
       const mounts = (container.volumeMounts || []).map(m => {
-        const pvc = volumes.find(v => v.name === m.name && v.persistentVolumeClaim)
-        const configMap = volumes.find(v => v.name === m.name && v.configMap)
-        const secret = volumes.find(v => v.name === m.name && v.secret)
+        const volume = volumes.find(v => v.name === m.name)
+        let mountType = 'unknown'
+        let pvcName = ''
+        let configMapName = ''
+        let secretName = ''
+        let key = ''
+        const subPath = m.subPath || ''
+
+        if (volume?.persistentVolumeClaim) {
+          mountType = 'pvc'
+          pvcName = volume.persistentVolumeClaim.claimName
+        } else if (volume?.configMap) {
+          mountType = 'configMap'
+          configMapName = volume.configMap.name
+        } else if (volume?.secret) {
+          mountType = 'secret'
+          secretName = volume.secret.secretName
+        }
+
+        // 推测 ConfigMap/Secret 挂载的 key（用于回填表单）
+        if (mountType === 'configMap' || mountType === 'secret') {
+          if (subPath) {
+            key = subPath // 很多时候 subPath 就是 key
+          }
+        }
 
         return {
-          mountType: pvc ? 'pvc' : configMap ? 'configMap' : secret ? 'secret' : 'unknown',
-          pvcName: pvc?.persistentVolumeClaim?.claimName || '',
-          configMapName: configMap?.configMap?.name || '',
-          secretName: secret?.secret?.secretName || '',
+          mountType,
+          pvcName,
+          configMapName,
+          secretName,
           mountPath: m.mountPath,
-          readOnly: m.readOnly
+          readOnly: typeof m.readOnly === 'boolean' ? m.readOnly : false,
+          subPath,
+          key
         }
       })
 
@@ -722,7 +729,75 @@ export default {
         this.allContainers.splice(index, 1)
       }
     },
+    submitEditDeployment() {
+      this.generateYamlFromForm()
+      let parsed
+      try {
+        parsed = yaml.load(this.createYamlContent)
+      } catch (err) {
+        this.$message.error('YAML格式错误: ' + err.message)
+        return
+      }
 
+      this.updateDeployment({
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        deployName: parsed.metadata.name,
+        deploy: parsed
+      })
+        .then(() => {
+          this.$message.success('更新成功')
+          this.createDialogVisible = false
+          this.fetchdeployments()
+        })
+        .catch(err => {
+          this.$message.error('更新失败')
+          console.error(err)
+        })
+    },
+    async handleEdit(row) {
+      this.isEdit = true
+      this.isEditMode = true
+      this.createTab = 'form'
+
+      try {
+        // 获取 deployment 详情
+        const detail = await this.getDeploymentDetail({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace,
+          deployName: row.metadata.name
+        })
+
+        // 同步 namespace
+        this.selectedNamespace = detail.metadata.namespace
+
+        // 解析 deployment 到表单
+        const form = safeParseForm(detail)
+
+        this.createForm = {
+          metadata: form.metadata,
+          spec: form.spec
+        }
+
+        // 清空容器列表
+        this.allContainers = []
+        this.containerIdCounter = 0
+
+        const containers = detail?.spec?.template?.spec?.containers || []
+        const initContainers = detail?.spec?.template?.spec?.initContainers || []
+        containers.forEach(c => this.pushContainerFromYaml(c, 'container', detail.spec.template.spec.volumes || []))
+        initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer', detail.spec.template.spec.volumes || []))
+
+        // 打开弹窗
+        this.createDialogVisible = true
+        this.fetchPVCs()
+        this.fetchCMs()
+        this.fetchSecrets()
+      } catch (err) {
+        this.$message.error('获取 Deployment 详情失败')
+        console.error(err)
+      }
+    },
     // 生成YAML
     generateYamlFromForm() {
       if (this.isYamlModified) {
@@ -910,31 +985,36 @@ export default {
         }
       }
     },
-    submitCreateDeployment() {
+    async handleSubmit() {
       this.generateYamlFromForm()
       let parsed
+
       try {
         parsed = yaml.load(this.createYamlContent)
       } catch (err) {
-        this.$message.error('YAML格式错误: ' + err.message)
+        this.$message.error('YAML 格式错误: ' + err.message)
         return
       }
 
-      this.createDeployment({
+      const payload = {
         wsName: this.selectedWorkspace,
         nsName: this.selectedNamespace,
         deployName: parsed.metadata.name,
         deploy: parsed
-      })
-        .then(() => {
-          this.$message.success('创建成功')
-          this.createDialogVisible = false
-          this.fetchdeployments()
-        })
-        .catch(err => {
-          this.$message.error('创建失败')
-          console.error(err)
-        })
+      }
+
+      const action = this.isEdit ? this.updateDeployment : this.createDeployment
+      const actionLabel = this.isEdit ? '更新' : '创建'
+
+      try {
+        await action(payload)
+        this.$message.success(`${actionLabel}成功`)
+        this.createDialogVisible = false
+    this.fetchdeployments?.()
+      } catch (err) {
+        this.$message.error(`${actionLabel}失败`)
+        console.error(err)
+      }
     },
     formatDate(dateStr) {
       if (!dateStr) return '-'
@@ -1291,11 +1371,16 @@ export default {
   height: calc(100vh - 100px);
 }
 
-.table-container {
+/* .table-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+} */
+.table-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 /* 新增样式 */
@@ -1335,7 +1420,8 @@ export default {
 }
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 1px;
+  flex-wrap: wrap; /* 小屏时自动换行 */
 }
 .table-container {
   flex: 1;
