@@ -1,6 +1,6 @@
 <template>
-  <div class="sts-page">
-    <!-- 筛选区 -->
+  <div class="job-page">
+    <!-- 筛选区域 -->
     <div class="filters">
       <span class="filter-label">工作空间：</span>
       <el-select v-model="selectedWorkspace" placeholder="选择工作空间" @change="onWorkspaceChange">
@@ -8,33 +8,24 @@
       </el-select>
 
       <span class="filter-label">命名空间：</span>
-      <el-select v-model="selectedNamespace" placeholder="选择命名空间" style="margin-left: 10px" @change="fetchDaemonsets">
-        <el-option
-          v-for="ns in filteredNamespaces"
-          :key="ns.metadata.name"
-          :label="ns.metadata.name"
-          :value="ns.metadata.name"
-        />
+      <el-select v-model="selectedNamespace" placeholder="选择命名空间" style="margin-left: 10px" @change="fetchJobs">
+        <el-option v-for="ns in filteredNamespaces" :key="ns.metadata.name" :label="ns.metadata.name" :value="ns.metadata.name" />
       </el-select>
 
       <el-input
         v-model="searchText"
-        placeholder="搜索守护进程"
+        placeholder="搜索 Job"
         style="margin-left: 20px; width: 300px"
         clearable
       />
-
-      <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
-        创建守护进程
-      </el-button>
     </div>
 
-    <!-- 操作栏 -->
+    <!-- 批量操作栏 -->
     <div class="actions">
       <el-button
         type="danger"
         size="mini"
-        :disabled="selectedSts.length === 0"
+        :disabled="selectedJobs.length === 0"
         @click="handleBatchDelete"
       >
         批量删除
@@ -43,27 +34,35 @@
 
     <!-- 表格 -->
     <div class="table-container">
-      <el-table v-loading="loading" :data="pagedDaemonsets" border style="flex: 1; overflow: auto" @selection-change="handleSelectionChange">
+      <el-table
+        v-loading="loading"
+        :data="pagedJobs || []"
+        border
+        style="flex: 1; overflow: auto"
+        @selection-change="handleSelectionChange"
+      >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="metadata.name" label="名称" width="300" />
-        <el-table-column prop="metadata.name" label="状态" width="300" />
-        <el-table-column prop="status.replicas" label="副本数" width="100" />
-        <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
+        <el-table-column prop="metadata.namespace" label="命名空间" width="300" />
+        <el-table-column prop="spec.completions" label="状态" width="120" />
+        <el-table-column prop="spec.backoffLimit" label="失败重试次数" width="120" />
+        <el-table-column prop="spec.completions" label="成功完成次数" width="120" />
+        <el-table-column prop="spec.parallelism" label="并行执行数" width="120" />
+        <el-table-column label="创建时间" width="180">
           <template v-slot="{ row }">
             {{ formatDate(row.metadata.creationTimestamp) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="350" align="center">
+        <el-table-column label="操作" fixed="right" width="200" align="center">
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" text @click="handleView(row)">详情</el-button>
-              <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
               <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无守护进程数据" />
+          <el-empty description="暂无 Job 数据" />
         </template>
       </el-table>
 
@@ -72,9 +71,9 @@
         background
         layout="total, sizes, prev, pager, next"
         :current-page="currentPage"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[10, 20, 50, 100, 500]"
         :page-size="pageSize"
-        :total="filteredDs.length"
+        :total="filteredJobs.length"
         style="margin-top: 16px; text-align: right"
         @current-change="handlePageChange"
         @size-change="handleSizeChange"
@@ -82,7 +81,7 @@
     </div>
 
     <!-- 详情弹窗 -->
-    <el-dialog title="Daemonset 详情" :visible.sync="showYamlDialog" width="70%" @opened="refreshMonacoEditor">
+    <el-dialog title="Job 详情" :visible.sync="showYamlDialog" width="70%" @opened="refreshMonacoEditor">
       <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
         <monaco-editor
           ref="yamlViewer"
@@ -108,42 +107,39 @@ export default {
       selectedWorkspace: '',
       selectedNamespace: '',
       searchText: '',
-      loading: false,
-      selectedSts: [],
-      pageSize: 10,
-      currentPage: 1,
       showYamlDialog: false,
       yamlContent: '',
       detailEditorOptions: {
-        readOnly: false,
+        readOnly: true,
         automaticLayout: true,
         minimap: { enabled: false },
-        fontSize: 14,
-        lineNumbers: 'on'
-      }
+        fontSize: 14
+      },
+      loading: false,
+      selectedJobs: [],
+      pageSize: 10,
+      currentPage: 1
     }
   },
   computed: {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
-    ...mapGetters('daemonsets', ['daemonsets']),
+    ...mapGetters('jobs', ['jobs']),
     filteredNamespaces() {
-      return this.namespaces.filter(
-        ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
-      )
+      return this.namespaces.filter(ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace)
     },
-    filteredDs() {
+    filteredJobs() {
       return this.searchText
-        ? this.daemonsets.filter(s => s.metadata.name.includes(this.searchText))
-        : this.daemonsets
+        ? this.jobs.filter(j => j.metadata.name.includes(this.searchText))
+        : this.jobs
     },
-    pagedDaemonsets() {
+    pagedJobs() {
       const start = (this.currentPage - 1) * this.pageSize
-      return this.filteredDs.slice(start, start + this.pageSize)
+      return this.filteredJobs.slice(start, start + this.pageSize)
     }
   },
   watch: {
-    filteredPodsByStatus() {
+    filteredJobs() {
       this.currentPage = 1
     }
   },
@@ -157,100 +153,108 @@ export default {
   methods: {
     ...mapActions('dashboard', ['getWorkspaces']),
     ...mapActions('workspace', ['getNamespaces']),
-    ...mapActions('daemonsets', [
-      'getDaemonsets',
-      'getDaemonsetsDetail',
-      'deleteDaemonsets'
-    ]),
-    async onWorkspaceChange() {
-      this.selectedNamespace = ''
-      await this.getNamespaces(this.selectedWorkspace)
-      const filtered = this.filteredNamespaces
-      if (filtered.length > 0) {
-        this.selectedNamespace = filtered[0].metadata.name
-        this.fetchDaemonsets()
-      }
-    },
-    async fetchDaemonsets() {
-      if (!this.selectedWorkspace || !this.selectedNamespace) return
-      this.loading = true
-      try {
-        await this.getDaemonsets({
-          wsName: this.selectedWorkspace,
-          nsName: this.selectedNamespace
-        })
-      } finally {
-        this.loading = false
-      }
-    },
-    handleSelectionChange(val) {
-      this.selectedSts = val
-    },
-    handlePageChange(page) {
-      this.currentPage = page
-    },
+    ...mapActions('jobs', ['getJobs', 'getJobsDetail', 'deleteJobs']),
+
     handleSizeChange(size) {
       this.pageSize = size
       this.currentPage = 1
     },
-    formatDate(dateStr) {
-      return dateStr ? new Date(dateStr).toLocaleString() : '-'
+
+    async onWorkspaceChange() {
+      this.selectedNamespace = ''
+      await this.getNamespaces(this.selectedWorkspace)
+      if (this.filteredNamespaces.length > 0) {
+        this.selectedNamespace = this.filteredNamespaces[0].metadata.name
+        this.fetchJobs()
+      }
     },
+
+    async fetchJobs() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      this.loading = true
+      try {
+        await this.getJobs({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+      } finally {
+        this.loading = false
+      }
+    },
+
+    formatDate(dateStr) {
+      if (!dateStr) return '-'
+      return new Date(dateStr).toLocaleString()
+    },
+
     async handleDelete(row) {
-      this.$confirm(`确认删除 Daemonset [${row.metadata.name}]？`, '提示', { type: 'warning' })
+      this.$confirm(`确认删除 Job [${row.metadata.name}]？`, '提示', { type: 'warning' })
         .then(async() => {
-          await this.deleteDaemonsets({
+          await this.deleteJobs({
             wsName: this.selectedWorkspace,
             nsName: this.selectedNamespace,
-            dsName: row.metadata.name
+            jobName: row.metadata.name
           })
+          this.fetchJobs()
           this.$message.success('删除成功')
-          this.fetchDaemonsets()
         })
     },
-    async handleBatchDelete() {
-      if (this.selectedSts.length === 0) return
-      this.$confirm(`确认删除选中的 ${this.selectedSts.length} 个 Daemonset？`, '提示', { type: 'warning' })
-        .then(async() => {
-          const tasks = this.selectedSts.map(item =>
-            this.deleteDaemonsets({
-              wsName: this.selectedWorkspace,
-              nsName: this.selectedNamespace,
-              dsName: item.metadata.name
-            })
-          )
-          await Promise.all(tasks)
-          this.$message.success('批量删除成功')
-          this.fetchDaemonsets()
-        })
-    },
+
     async handleView(row) {
-      const res = await this.getDaemonsetsDetail({
-        wsName: this.selectedWorkspace,
-        nsName: this.selectedNamespace,
-        dsName: row.metadata.name
-      })
-      this.yamlContent = yaml.dump(res)
-      this.showYamlDialog = true
-      this.$nextTick(() => {
-        this.$refs.yamlViewer?.editor?.setValue(this.yamlContent)
-        this.refreshMonacoEditor()
-      })
+      try {
+        const res = await this.getJobsDetail({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace,
+          jobName: row.metadata.name
+        })
+        this.yamlContent = yaml.dump(res)
+        this.showYamlDialog = true
+        this.$nextTick(() => {
+          this.$refs.yamlViewer?.editor?.setValue(this.yamlContent)
+          this.refreshMonacoEditor()
+        })
+      } catch (err) {
+        this.$message.error('获取 YAML 详情失败')
+        console.error(err)
+      }
     },
+
     refreshMonacoEditor() {
       this.$nextTick(() => {
         this.$refs.yamlViewer?.editor?.layout()
       })
     },
-    openCreateDialog() {
-      this.$message.info('创建功能稍后实现')
+
+    async handleBatchDelete() {
+      if (this.selectedJobs.length === 0) {
+        this.$message.warning('请先选择要删除的 Job')
+        return
+      }
+      this.$confirm(`确认删除选中的 ${this.selectedJobs.length} 个 Job？`, '提示', { type: 'warning' })
+        .then(async() => {
+          const tasks = this.selectedJobs.map(job =>
+            this.deleteJobs({
+              wsName: this.selectedWorkspace,
+              nsName: this.selectedNamespace,
+              jobName: job.metadata.name
+            })
+          )
+          await Promise.all(tasks)
+          this.$message.success('批量删除成功')
+          this.fetchJobs()
+        })
+    },
+
+    handleSelectionChange(val) {
+      this.selectedJobs = val
+    },
+
+    handlePageChange(page) {
+      this.currentPage = page
     }
   }
 }
 </script>
 
 <style scoped>
-.secret-page {
+.job-page {
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -270,7 +274,7 @@ export default {
 }
 .action-buttons {
   display: flex;
-  gap: 8px;  /* 按钮间距 */
+  gap: 8px;
 }
 .table-container {
   flex: 1;
@@ -282,5 +286,4 @@ export default {
   gap: 12px;
   margin: 12px 0;
 }
-
 </style>

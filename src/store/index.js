@@ -16,6 +16,12 @@ import persistentvolumes from './modules/persistentvolumes'
 import persistentvolumeclaims from './modules/persistentvolumeclaims'
 import pods from './modules/pods'
 import deployments from './modules/deployments'
+import statefulsets from './modules/statefulsets'
+import daemonsets from './modules/daemonsets'
+import services from './modules/services'
+import jobs from './modules/jobs'
+import cronjobs from './modules/cronjobs'
+import nodes from './modules/nodes'
 
 Vue.use(Vuex)
 
@@ -35,7 +41,13 @@ const store = new Vuex.Store({
     persistentvolumes,
     persistentvolumeclaims,
     pods,
-    deployments
+    deployments,
+    statefulsets,
+    daemonsets,
+    services,
+    jobs,
+    cronjobs,
+    nodes
   },
   getters
 })

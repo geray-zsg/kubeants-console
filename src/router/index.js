@@ -100,6 +100,36 @@ export const constantRoutes = [
         meta: { title: '无状态服务', icon: 'table' }
       },
       {
+        path: 'statefulsets',
+        name: 'Statefulsets',
+        component: () => import('@/views/statefulsets/index'),
+        meta: { title: '有状态服务', icon: 'table' }
+      },
+      {
+        path: 'daemonsets',
+        name: 'Daemonsets',
+        component: () => import('@/views/daemonsets/index'),
+        meta: { title: '守护进程', icon: 'table' }
+      },
+      {
+        path: 'services',
+        name: 'Services',
+        component: () => import('@/views/services/index'),
+        meta: { title: '服务', icon: 'table' }
+      },
+      {
+        path: 'jobs',
+        name: 'Jobs',
+        component: () => import('@/views/jobs/index'),
+        meta: { title: '任务', icon: 'table' }
+      },
+      {
+        path: 'cronjobs',
+        name: 'Cronjobs',
+        component: () => import('@/views/cronjobs/index'),
+        meta: { title: '定时任务', icon: 'table' }
+      },
+      {
         path: 'pod',
         name: 'Pod',
         component: () => import('@/views/pod/index'),
@@ -173,7 +203,7 @@ export const constantRoutes = [
       {
         path: 'index',
         name: 'Form',
-        component: () => import('@/views/form/index'),
+        component: () => import('@/views/nodes/index'),
         meta: { title: '节点管理', icon: 'form' }
         /* 节点列表（状态、资源使用情况）
 节点标签与污点（标签管理和调度策略）
