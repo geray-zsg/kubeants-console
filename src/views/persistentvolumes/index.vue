@@ -43,6 +43,10 @@
           <el-button size="mini" @click="handleView(row)">详情</el-button>
         </template>
       </el-table-column>
+
+      <template #empty>
+        <el-empty description="暂无数据" />
+      </template>
     </el-table>
 
     <!-- YAML 详情弹窗 -->

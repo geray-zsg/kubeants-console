@@ -52,6 +52,9 @@
               <el-button size="mini" type="danger" @click.stop="deleteNamespace(row)">删除</el-button>
             </template>
           </el-table-column>
+          <template #empty>
+            <el-empty description="暂无数据" />
+          </template>
         </el-table>
         <el-skeleton v-else :rows="5" animated />
       </el-tab-pane>
@@ -84,6 +87,9 @@
               <el-button size="mini" type="danger" @click.stop="removeUserBinding(row)">移除成员</el-button>
             </template>
           </el-table-column>
+          <template #empty>
+            <el-empty description="暂无数据" />
+          </template>
         </el-table>
       </el-tab-pane>
 
