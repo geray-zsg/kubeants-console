@@ -1,0 +1,225 @@
+# Tomcat
+server:
+  port: 8088
+#logging:
+#  level:
+#    com.workbench.product.dal.mysql: debug
+
+# Spring
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://10.176.34.131:3316/common?allowMultiQueries=true&useUnicode=true&useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&autoReconnect=true&nullCatalogMeansCurrent=true
+    username: workmanager
+    password: wiOyN9yeKYPr2EHw08AU
+
+    # HikariCP 连接池配置
+    hikari:
+      # 连接池名称
+      pool-name: TemplateHikariCP
+      # 最小空闲连接数
+      minimum-idle: 5
+      # 最大连接数
+      maximum-pool-size: 20
+      # 连接超时时间(毫秒)
+      connection-timeout: 30000
+      # 连接最大存活时间(毫秒)
+      max-lifetime: 1800000
+      # 连接测试查询
+      connection-test-query: SELECT 1
+      # 空闲连接超时时间(毫秒)
+      idle-timeout: 600000
+  #redis:
+  #  host: 127.0.0.1
+  #  port: 6379
+  #  password: 123
+  #  timeout: 10000ms
+  #  database: 0
+  #    lettuce:
+  #      pool:
+  #        enabled: true
+  #        max-active: 16
+  #        max-idle: 16
+  #        min-idle: 16
+  #    password: qxp1234
+  #    cluster:
+  #      nodes:
+  #        - 10.179.25.17:6379
+  #        - 10.179.25.18:6379
+  #        - 10.179.25.19:6379
+  #        - 10.179.25.20:6379
+  #        - 10.179.25.21:6379
+  #        - 10.179.25.22:6379
+  #    database: 10
+  # kafka 配置
+#  kafka:
+#    bootstrap-servers:
+#      - http://127.0.0.1:9092
+#    # 生产者
+#    producer:
+#      # 发生错误后，消息重发次数
+#      retries: 0
+#      # 当有多个消息需要被发送到同一分区时，生产者会把他们放在同一个批次里，该参数指定了一个批次可以使用的内存大小
+#      batch-size: 16384
+#      # 设置生产者内存缓冲区大小
+#      buffer-memory: 33554432
+#      # key序列化方式
+#      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+#      # value序列化方式
+#      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+#      # 0：生产者在成功写入消息之前不会等待任何来自服务器的响应
+#      # 1：只要集群的首领节点收到消息，生产者就会收到一个来自服务器的响应
+#      # 2：all 只有当所有参与复制的节点都收到消息，生产者才会收到一个来自服务器的响应
+#      acks: 1
+#    # 消费者
+#    consumer:
+#      # groupId
+#      group-id: product_group
+#      # 自动提交时间间隔 在spring boot
+#      auto-commit-interval: 1S
+#      # 该属性指定了消费者在读取一个没有偏移量的分区或者偏移量无效的情况下该作何处理：
+#      # latest（默认值）在偏移量无效的情况下，消费者将从最新的记录开始读取数据（在消费者启动之后生成的记录）
+#      # earliest ：在偏移量无效的情况下，消费者将从起始位置读取分区的记录
+#      auto-offset-reset: earliest
+#      # key反序列化方式
+#      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+#      # value反序列化方式
+#      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+#      # 是否自动提交
+#    #      enable-auto-commit: false
+#    listener:
+#      # 在监听器中运行的线程数
+#      concurrency: 5
+#      # listner负责ack，每调用一次，就立刻commit
+#      ack-model: maual_immedite
+#      missing-topic-fatal: false
+#    properties:
+#      max:
+#        poll:
+#          interval:
+#            ms: 600000
+
+
+mybatis-plus:
+  type-aliases-package: com.workbench.product.dal.dataobject
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true # 虽然默认为 true ，但是还是显示去指定下。
+  global-config:
+    db-config:
+      id-type: ASSIGN_UUID
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+cmdb:
+  url: http://10.176.31.132:8081/api/v6/cmdb/instances
+  secret: 18a6413dc4fe394c66345ebe501b2f26
+  app-code: cmft_tenant_portal
+  url2: http://10.176.31.132:8081/api/v6/cmft/sync-all-instances
+  url3: http://10.176.31.132:8081/api/v6/cmft/progress
+  url4: http://10.176.31.132:8081/api/v6/cmdb/relation-query
+  create-instance-url: http://10.176.31.132:8081/api/v6/cmft/sync-new-instances
+  update-instance-url: http://10.176.31.132:8081/api/v6/cmdb/update-instance
+  delete-instance-url: http://10.176.31.132:8081/api/v6/cmdb/delete-instance
+
+
+#xxl:
+#  job:
+#    admin:
+#      # 调度中心服务部署的地址
+#      addresses: http://xxl-job.it.test:32633/xxl-job-admin
+#    # 执行器通讯TOKEN,要和调度中心服务部署配置的accessToken一致，要不然无法连接注册
+#    accessToken: 1qaz2WSX
+#    executor:
+#      # 执行器AppName
+#      appname: product-job
+#      # 执行器注册 [选填]：优先使用该配置作为注册地址，为空时使用内嵌服务 ”IP:PORT“ 作为注册地址。从而更灵活的支持容器类型执行器动态IP和动态映射端口问题。
+#      address:
+#      ip:
+#      #执行器端口号：小于等于0则自动获取；默认端口为9999，单机部署多个执行器时，注意要配置不同执行器端口；
+#      port: 9999
+#      # 执行器运行日志文件存储磁盘路径 [选填] ：需要对该路径拥有读写权限；为空则使用默认路径；
+#      logpath:
+#      # 执行器日志文件保存天数 [选填] ： 过期日志自动清理, 限制值大于等于3时生效; 否则, 如-1, 关闭自动清理功能；
+#      logretentiondays: 30
+
+iam:
+  appId: 326cca08-2c82-4932-80ad-395cdb13f55d
+  appSecret: 8b6ced5b-eb72-4aea-aaf2-ccc8f9297323
+  host: http://10.176.152.5:8002
+  userAppList: /openapi_v2/scim/v3/UserAppList
+
+role:
+  deptManager: 111
+
+
+resource:
+  resourceTypes: "{
+    computation: 'KVM,VMware,移动云虚拟机,physicalHost',
+    net: 'firewall,intranetStrategy',
+    storage: 'fileStorage',
+    database: 'mysql,oracle,ob,panwei',
+    otherDev: 'databaseOnenessMachine'
+  }"
+  accredit: "{
+    'KVM': '4aHostLists',
+    'VMware': '4aHostLists',
+    '移动云虚拟机': '4aHostLists',
+    'physicalHost': '4aHostLists',
+    'mysql': '4aDbList',
+    'oracle': '4aDbList',
+    'ob': '4aDbLists',
+    'panwei': '4aDbLists',
+    'databaseOnenessMachine': '4aHostLists'
+  }"
+  iam: "{
+         '4aDbList': 'openapi_v2/scim/v3/UserDBList',
+         '4aDbLists': 'openapi_v2/scim/v3/UserDBLists',
+         '4aHostList': 'openapi_v2/scim/v3/UserHostList',
+         '4aHostLists': 'openapi_v2/scim/v3/UserHostLists'
+  }"
+
+
+
+# pageHelper分页配置
+pagehelper:
+  helper-dialect: mysql
+  reasonable: true
+  support-methods-arguments: true
+
+
+#minio:
+#  url: minio.workbench
+#  port: 9000
+#  access-key: Minio
+#  secret-key: Minio12345
+#  bucket-name: mybucket
+#  location : beijing
+#  secure: false  # 是否使用 HTTPS
+minio:
+  readable: qxp-static
+  private: default
+  endpoint : http://192.168.165.87
+  port1 : 9005
+  accessKeyID : admin
+  secretAccessKey : admin123
+  useSSL : false
+  bucketFileName : announcement-test
+  bucketImageName : qxp-static
+  announcement:
+    attachment:
+      path: announcement/attachment
+
+# OpenAPI/Swagger 配置
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  packages-to-scan: com.workbench.common

@@ -19,7 +19,9 @@ const mutations = {
 const actions = {
   async getDeployment({ commit }, { wsName, nsName }) {
     const res = await getDeployment(wsName, nsName)
-    commit('SET_DEPLOYMENTS', res.items)
+    const deployList = res.items
+    commit('SET_DEPLOYMENTS', deployList)
+    return deployList
   },
 
   async getDeploymentDetail(_, { wsName, nsName, deployName }) {

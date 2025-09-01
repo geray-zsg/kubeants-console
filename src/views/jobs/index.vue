@@ -18,6 +18,14 @@
         style="margin-left: 20px; width: 300px"
         clearable
       />
+      <el-button
+        type="primary"
+        icon="el-icon-plus"
+        style="margin-left: auto"
+        @click="handleCreate"
+      >
+        新建任务
+      </el-button>
     </div>
 
     <!-- 批量操作栏 -->
@@ -57,6 +65,7 @@
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" text @click="handleView(row)">详情</el-button>
+              <el-button size="small" @click="handleEdit(row)">编辑</el-button>
               <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
@@ -92,6 +101,28 @@
         />
       </div>
     </el-dialog>
+    <el-dialog :title="isEditMode ? '编辑 Job' : '创建 Job'" :visible.sync="showDialog" width="70%" @opened="onDialogOpened">
+      <el-form ref="jobForm" :model="jobForm" label-width="120px">
+        <el-form-item label="Job 名称" :rules="[{ required: true, message: '请输入 Job 名称', trigger: 'blur' }]">
+          <el-input v-model="jobForm.metadata.name" placeholder="请输入 Job 名称" />
+        </el-form-item>
+        <el-form-item label="命名空间">
+          <el-select v-model="jobForm.metadata.namespace" placeholder="请选择命名空间">
+            <el-option v-for="ns in filteredNamespaces" :key="ns.metadata.name" :label="ns.metadata.name" :value="ns.metadata.name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="完成数量">
+          <el-input-number v-model="jobForm.spec.completions" :min="1" label="完成数量" />
+        </el-form-item>
+        <el-form-item label="并行数量">
+          <el-input-number v-model="jobForm.spec.parallelism" :min="1" label="并行数量" />
+        </el-form-item>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="showDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmit">{{ isEditMode ? '更新' : '创建' }}</el-button>
+        </span>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
@@ -118,7 +149,13 @@ export default {
       loading: false,
       selectedJobs: [],
       pageSize: 10,
-      currentPage: 1
+      currentPage: 1,
+      showDialog: false, // 控制弹框显示
+      isEditMode: false, // 判断是否为编辑模式
+      jobForm: {
+        metadata: { name: '', namespace: '' },
+        spec: { completions: 1, parallelism: 1 }
+      }
     }
   },
   computed: {
@@ -248,6 +285,53 @@ export default {
 
     handlePageChange(page) {
       this.currentPage = page
+    },
+    async handleSubmit() {
+      if (this.isEditMode) {
+        // 编辑模式，调用更新接口
+        await this.updateJob()
+      } else {
+        // 创建模式，调用创建接口
+        await this.createJob()
+      }
+      this.showDialog = false
+    },
+    async createJob() {
+      try {
+        await this.createJobs({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace,
+          jobObj: this.jobForm
+        })
+        this.$message.success('Job 创建成功')
+        this.fetchJobs()
+      } catch (error) {
+        this.$message.error('创建失败')
+      }
+    },
+    async updateJob() {
+      try {
+        await this.updateJobs({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace,
+          jobName: this.jobForm.metadata.name,
+          jobObj: this.jobForm
+        })
+        this.$message.success('Job 更新成功')
+        this.fetchJobs()
+      } catch (error) {
+        this.$message.error('更新失败')
+      }
+    },
+    async handleEdit(row) {
+      this.isEditMode = true
+      this.jobForm = { ...row } // 填充数据
+      this.showDialog = true
+    },
+    async handleCreate() {
+      this.isEditMode = false
+      this.jobForm = { metadata: { name: '', namespace: '' }, spec: { completions: 1, parallelism: 1 }} // 重置表单
+      this.showDialog = true
     }
   }
 }
