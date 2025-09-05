@@ -285,10 +285,11 @@
                   >
                     <!-- 挂载类型 -->
                     <el-select v-model="mount.mountType" placeholder="挂载类型" style="width: 120px">
-                      <el-option label="PVC模板" value="volumeClaimTemplate" />
                       <el-option label="PVC" value="pvc" />
                       <el-option label="ConfigMap" value="configMap" />
                       <el-option label="Secret" value="secret" />
+                      <el-option label="HostPath" value="hostPath" />
+                      <el-option label="EmptyDir" value="emptyDir" />
                     </el-select>
 
                     <!-- PVC模板 -->
@@ -302,7 +303,26 @@
                         />
                       </el-select>
                     </template>
+                    <!-- HostPath 类型 -->
+                    <template v-else-if="mount.mountType === 'hostPath'">
+                      <el-input v-model="mount.hostPath" placeholder="主机路径" style="width: 160px" />
+                      <el-select v-model="mount.hostPathType" placeholder="路径类型" style="width: 120px">
+                        <el-option label="Directory" value="Directory" />
+                        <el-option label="File" value="File" />
+                        <el-option label="Socket" value="Socket" />
+                        <el-option label="CharDevice" value="CharDevice" />
+                        <el-option label="BlockDevice" value="BlockDevice" />
+                      </el-select>
+                    </template>
 
+                    <!-- EmptyDir 类型 -->
+                    <template v-else-if="mount.mountType === 'emptyDir'">
+                      <el-select v-model="mount.medium" placeholder="存储介质" style="width: 120px">
+                        <el-option label="默认" value="" />
+                        <el-option label="Memory" value="Memory" />
+                      </el-select>
+                      <el-input v-model="mount.sizeLimit" placeholder="大小限制" style="width: 120px" />
+                    </template>
                     <!-- PVC -->
                     <template v-else-if="mount.mountType === 'pvc'">
                       <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 160px">
@@ -483,7 +503,8 @@
 import { mapGetters, mapActions } from 'vuex'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
-import { joinShellArgs, splitShellArgs, normalizeMountType } from '@/utils/shellArgUtils'
+// import { joinShellArgs, splitShellArgs, normalizeMountType } from '@/utils/shellArgUtils'
+import { joinShellArgs, splitShellArgs } from '@/utils/shellArgUtils'
 import { safeParseForm } from '@/utils/stsParser'
 
 export default {
@@ -627,26 +648,17 @@ export default {
       })
     },
 
-    pushContainerFromYaml(container, type = 'container', volumes = [], volumeClaimTemplates = []) {
+    pushContainerFromYaml(container, type = 'container', volumes = []) {
       const mounts = (container.volumeMounts || []).map(m => {
-        // 检查是否是volumeClaimTemplate挂载
-        const vct = volumeClaimTemplates.find(v => v.metadata.name === m.name)
-        if (vct) {
-          return {
-            mountType: 'volumeClaimTemplate',
-            volumeClaimTemplateName: vct.metadata.name,
-            mountPath: m.mountPath,
-            readOnly: typeof m.readOnly === 'boolean' ? m.readOnly : false,
-            subPath: m.subPath || ''
-          }
-        }
-
-        // 检查是否是普通volume挂载
         const volume = volumes.find(v => v.name === m.name)
         let mountType = 'unknown'
         let pvcName = ''
         let configMapName = ''
         let secretName = ''
+        let hostPath = ''
+        let hostPathType = ''
+        let medium = ''
+        let sizeLimit = ''
         let key = ''
         const subPath = m.subPath || ''
 
@@ -659,6 +671,14 @@ export default {
         } else if (volume?.secret) {
           mountType = 'secret'
           secretName = volume.secret.secretName
+        } else if (volume?.hostPath) {
+          mountType = 'hostPath'
+          hostPath = volume.hostPath.path
+          hostPathType = volume.hostPath.type || ''
+        } else if (volume?.emptyDir) {
+          mountType = 'emptyDir'
+          medium = volume.emptyDir.medium || ''
+          sizeLimit = volume.emptyDir.sizeLimit || ''
         }
 
         // 推测 ConfigMap/Secret 挂载的 key
@@ -671,12 +691,21 @@ export default {
           pvcName,
           configMapName,
           secretName,
+          hostPath,
+          hostPathType,
+          medium,
+          sizeLimit,
           mountPath: m.mountPath,
           readOnly: typeof m.readOnly === 'boolean' ? m.readOnly : false,
           subPath,
           key
         }
       })
+
+      // 确保资源配额有默认值
+      const resources = container.resources || {}
+      const requests = resources.requests || {}
+      const limits = resources.limits || {}
 
       const mapped = {
         id: ++this.containerIdCounter,
@@ -685,9 +714,15 @@ export default {
         image: container.image || '',
         imagePullPolicy: container.imagePullPolicy || 'IfNotPresent',
         ports: container.ports || [],
-        resources: container.resources || {
-          requests: { cpu: '100m', memory: '128Mi' },
-          limits: { cpu: '500m', memory: '512Mi' }
+        resources: {
+          requests: {
+            cpu: requests.cpu || '100m',
+            memory: requests.memory || '128Mi'
+          },
+          limits: {
+            cpu: limits.cpu || '500m',
+            memory: limits.memory || '512Mi'
+          }
         },
         volumeMounts: mounts,
         command: joinShellArgs(container.command),
@@ -872,30 +907,74 @@ export default {
           container.volumeMounts.forEach(m => {
             let volumeName = ''
 
-            if (m.mountType === 'volumeClaimTemplate') {
-              // volumeClaimTemplate挂载
-              volumeName = m.volumeClaimTemplateName
-            } else {
-              // 普通volume挂载
-              volumeName = `${normalizeMountType(m.mountType)}-${m.pvcName || m.configMapName || m.secretName}`
+            if (m.mountType === 'pvc') {
+              // PVC挂载
+              volumeName = `pvc-${m.pvcName}`
 
               // 添加到 volumes 列表（避免重复）
               if (!volumes.find(v => v.name === volumeName)) {
-                const volume = { name: volumeName }
+                volumes.push({
+                  name: volumeName,
+                  persistentVolumeClaim: { claimName: m.pvcName }
+                })
+              }
+            } else if (m.mountType === 'configMap') {
+              // ConfigMap挂载
+              volumeName = `configmap-${m.configMapName}`
 
-                if (m.mountType === 'pvc') {
-                  volume.persistentVolumeClaim = { claimName: m.pvcName }
-                } else if (m.mountType === 'configMap') {
-                  volume.configMap = {
-                    name: m.configMapName
-                  }
-                } else if (m.mountType === 'secret') {
-                  volume.secret = {
-                    secretName: m.secretName
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  configMap: { name: m.configMapName }
+                })
+              }
+            } else if (m.mountType === 'secret') {
+              // Secret挂载
+              volumeName = `secret-${m.secretName}`
+
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  secret: { secretName: m.secretName }
+                })
+              }
+            } else if (m.mountType === 'hostPath') {
+              // HostPath挂载
+              volumeName = `hostpath-${m.hostPath.replace(/\//g, '-')}` // 用路径来生成名称，替换/为-
+
+              if (!volumes.find(v => v.name === volumeName)) {
+                const hostPathVolume = {
+                  name: volumeName,
+                  hostPath: {
+                    path: m.hostPath
                   }
                 }
 
-                volumes.push(volume)
+                if (m.hostPathType) {
+                  hostPathVolume.hostPath.type = m.hostPathType
+                }
+
+                volumes.push(hostPathVolume)
+              }
+            } else if (m.mountType === 'emptyDir') {
+              // EmptyDir挂载
+              volumeName = `emptydir-${Math.random().toString(36).substr(2, 9)}` // 生成随机名称
+
+              if (!volumes.find(v => v.name === volumeName)) {
+                const emptyDirVolume = {
+                  name: volumeName,
+                  emptyDir: {}
+                }
+
+                if (m.medium) {
+                  emptyDirVolume.emptyDir.medium = m.medium
+                }
+
+                if (m.sizeLimit) {
+                  emptyDirVolume.emptyDir.sizeLimit = m.sizeLimit
+                }
+
+                volumes.push(emptyDirVolume)
               }
             }
 
@@ -1405,7 +1484,10 @@ export default {
         pvcName: '',
         configMapName: '',
         secretName: '',
-        volumeClaimTemplateName: '',
+        hostPath: '',
+        hostPathType: '',
+        medium: '',
+        sizeLimit: '',
         mountPath: '',
         key: '',
         subPath: '',
