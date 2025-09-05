@@ -230,6 +230,7 @@
                     添加端口
                   </el-button>
                 </el-form-item>
+                <!-- 修改资源配额的模板部分，添加默认值 -->
                 <el-form-item label="资源配额">
                   <div style="display: flex; flex-wrap: wrap; gap: 10px">
                     <!-- 第一行 -->
@@ -568,41 +569,6 @@ export default {
       })
     },
 
-    // 容器映射，yaml切换到表单模式时需要映射到表单的数据内容
-    // pushContainerFromYaml(container, type = 'container', volumes = []) {
-    //   const mounts = (container.volumeMounts || []).map(m => {
-    //     const pvc = volumes.find(v => v.name === m.name && v.persistentVolumeClaim)
-    //     const configMap = volumes.find(v => v.name === m.name && v.configMap)
-    //     const secret = volumes.find(v => v.name === m.name && v.secret)
-
-    //     return {
-    //       mountType: pvc ? 'pvc' : configMap ? 'configMap' : secret ? 'secret' : 'unknown',
-    //       pvcName: pvc?.persistentVolumeClaim?.claimName || '',
-    //       configMapName: configMap?.configMap?.name || '',
-    //       secretName: secret?.secret?.secretName || '',
-    //       mountPath: m.mountPath,
-    //       readOnly: m.readOnly
-    //     }
-    //   })
-
-    //   const mapped = {
-    //     id: ++this.containerIdCounter,
-    //     type,
-    //     name: container.name || '',
-    //     image: container.image || '',
-    //     imagePullPolicy: container.imagePullPolicy || 'IfNotPresent',
-    //     ports: container.ports || [],
-    //     resources: container.resources || {
-    //       requests: { cpu: '100', memory: '128' },
-    //       limits: { cpu: '500', memory: '512' }
-    //     },
-    //     volumeMounts: mounts,
-    //     command: joinShellArgs(container.command),
-    //     args: joinShellArgs(container.args)
-    //   }
-
-    //   this.allContainers.push(mapped)
-    // },
     pushContainerFromYaml(container, type = 'container', volumes = []) {
       const mounts = (container.volumeMounts || []).map(m => {
         const volume = volumes.find(v => v.name === m.name)
@@ -643,6 +609,11 @@ export default {
         }
       })
 
+      // 确保资源配额有默认值
+      const resources = container.resources || {}
+      const requests = resources.requests || {}
+      const limits = resources.limits || {}
+
       const mapped = {
         id: ++this.containerIdCounter,
         type,
@@ -650,9 +621,15 @@ export default {
         image: container.image || '',
         imagePullPolicy: container.imagePullPolicy || 'IfNotPresent',
         ports: container.ports || [],
-        resources: container.resources || {
-          requests: { cpu: '100', memory: '128' },
-          limits: { cpu: '500', memory: '512' }
+        resources: {
+          requests: {
+            cpu: requests.cpu || '100m',
+            memory: requests.memory || '128Mi'
+          },
+          limits: {
+            cpu: limits.cpu || '500m',
+            memory: limits.memory || '512Mi'
+          }
         },
         volumeMounts: mounts,
         command: joinShellArgs(container.command),
@@ -707,8 +684,8 @@ export default {
         image: '',
         ports: [],
         resources: {
-          requests: { cpu: '100', memory: '128' }, // 默认值
-          limits: { cpu: '500', memory: '512' } // 默认值
+          requests: { cpu: '100m', memory: '128Mi' }, // 使用正确的单位
+          limits: { cpu: '500m', memory: '512Mi' } // 使用正确的单位
         },
         imagePullPolicy: 'IfNotPresent',
         command: '',
@@ -785,8 +762,25 @@ export default {
 
         const containers = detail?.spec?.template?.spec?.containers || []
         const initContainers = detail?.spec?.template?.spec?.initContainers || []
-        containers.forEach(c => this.pushContainerFromYaml(c, 'container', detail.spec.template.spec.volumes || []))
-        initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer', detail.spec.template.spec.volumes || []))
+
+        // 确保每个容器都有正确的资源结构
+        containers.forEach(c => {
+          // 确保资源结构完整
+          if (!c.resources) c.resources = {}
+          if (!c.resources.requests) c.resources.requests = {}
+          if (!c.resources.limits) c.resources.limits = {}
+
+          this.pushContainerFromYaml(c, 'container', detail.spec.template.spec.volumes || [])
+        })
+
+        initContainers.forEach(c => {
+          // 确保资源结构完整
+          if (!c.resources) c.resources = {}
+          if (!c.resources.requests) c.resources.requests = {}
+          if (!c.resources.limits) c.resources.limits = {}
+
+          this.pushContainerFromYaml(c, 'initContainer', detail.spec.template.spec.volumes || [])
+        })
 
         // 打开弹窗
         this.createDialogVisible = true
@@ -825,14 +819,19 @@ export default {
         clean.command = splitShellArgs(container.command)
         clean.args = splitShellArgs(container.args)
 
+        // 确保资源结构存在
+        const resources = container.resources || {}
+        const requests = resources.requests || {}
+        const limits = resources.limits || {}
+
         clean.resources = {
           requests: {
-            cpu: addResourceUnit(container.resources?.requests?.cpu, 'cpu'),
-            memory: addResourceUnit(container.resources?.requests?.memory, 'memory')
+            cpu: addResourceUnit(requests.cpu, 'cpu'),
+            memory: addResourceUnit(requests.memory, 'memory')
           },
           limits: {
-            cpu: addResourceUnit(container.resources?.limits?.cpu, 'cpu'),
-            memory: addResourceUnit(container.resources?.limits?.memory, 'memory')
+            cpu: addResourceUnit(limits.cpu, 'cpu'),
+            memory: addResourceUnit(limits.memory, 'memory')
           }
         }
 
