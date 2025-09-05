@@ -25,20 +25,20 @@ const actions = {
   },
 
   async getStatefulsetsDetail(_, { wsName, nsName, stsName }) {
-    console.log('前端传递删除deploy的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', stsName)
+    console.log('前端传递删除stsObj的wsName：', wsName, '获取的ns', nsName, 'stsObj名称：', stsName)
     const res = await getStatefulsetsDetail(wsName, nsName, stsName)
     return res
   },
-  async createStatefulsets(_, { wsName, nsName, stsName, deploy }) {
-    const res = await createStatefulsets(wsName, nsName, stsName, deploy)
+  async createStatefulsets(_, { wsName, nsName, stsName, stsObj }) {
+    const res = await createStatefulsets(wsName, nsName, stsName, stsObj)
     return res
   },
-  async updateStatefulsets(_, { wsName, nsName, stsName, deploy }) {
-    const res = await updateStatefulsets(wsName, nsName, stsName, deploy)
+  async updateStatefulsets(_, { wsName, nsName, stsName, stsObj }) {
+    const res = await updateStatefulsets(wsName, nsName, stsName, stsObj)
     return res
   },
   async deleteStatefulsets(_, { wsName, nsName, stsName }) {
-    console.log('前端传递删除deploy的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', stsName)
+    console.log('前端传递删除stsObj的wsName：', wsName, '获取的ns', nsName, 'stsObj名称：', stsName)
     const res = await deleteStatefulsets(wsName, nsName, stsName)
     return res
   }

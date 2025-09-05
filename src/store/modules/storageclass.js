@@ -16,7 +16,9 @@ const mutations = {
 const actions = {
   async getStorageclass({ commit }, { wsName }) {
     const res = await getStorageclass(wsName)
-    commit('SET_SC', res.items?.items || [])
+    const scList = res.items?.items || []
+    commit('SET_SC', scList)
+    return scList
   },
 
   async getStorageclassDetaile(_, { wsName, scName }) {
