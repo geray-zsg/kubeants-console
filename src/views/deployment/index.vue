@@ -995,7 +995,8 @@ export default {
         kind: 'Deployment',
         metadata: {
           name: appName,
-          namespace: this.selectedNamespace
+          namespace: this.selectedNamespace,
+          labels: { app: appName }
         },
         spec: {
           replicas: this.createForm.spec.replicas,

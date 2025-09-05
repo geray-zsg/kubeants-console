@@ -954,7 +954,8 @@ export default {
         kind: 'DaemonSet',
         metadata: {
           name: appName,
-          namespace: this.selectedNamespace
+          namespace: this.selectedNamespace,
+          labels: { app: appName }
         },
         spec: {
           selector: {

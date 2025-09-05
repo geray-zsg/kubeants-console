@@ -285,6 +285,7 @@
                   >
                     <!-- 挂载类型 -->
                     <el-select v-model="mount.mountType" placeholder="挂载类型" style="width: 120px">
+                      <el-option label="PVC模板" value="volumeClaimTemplate" />
                       <el-option label="PVC" value="pvc" />
                       <el-option label="ConfigMap" value="configMap" />
                       <el-option label="Secret" value="secret" />
@@ -300,6 +301,17 @@
                           :key="vctIdx"
                           :label="vct.metadata.name"
                           :value="vct.metadata.name"
+                        />
+                      </el-select>
+                    </template>
+                    <!-- PVC -->
+                    <template v-else-if="mount.mountType === 'pvc'">
+                      <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 160px">
+                        <el-option
+                          v-for="pvc in pvcList"
+                          :key="pvc.metadata.name"
+                          :label="pvc.metadata.name"
+                          :value="pvc.metadata.name"
                         />
                       </el-select>
                     </template>
@@ -660,6 +672,7 @@ export default {
         let medium = ''
         let sizeLimit = ''
         let key = ''
+        const volumeClaimTemplateName = ''
         const subPath = m.subPath || ''
 
         if (volume?.persistentVolumeClaim) {
@@ -688,6 +701,7 @@ export default {
 
         return {
           mountType,
+          volumeClaimTemplateName,
           pvcName,
           configMapName,
           secretName,
@@ -907,7 +921,10 @@ export default {
           container.volumeMounts.forEach(m => {
             let volumeName = ''
 
-            if (m.mountType === 'pvc') {
+            if (m.mountType === 'volumeClaimTemplate') {
+              // volumeClaimTemplate挂载
+              volumeName = m.volumeClaimTemplateName
+            } else if (m.mountType === 'pvc') {
               // PVC挂载
               volumeName = `pvc-${m.pvcName}`
 
@@ -1011,7 +1028,7 @@ export default {
         metadata: {
           name: appName,
           namespace: this.selectedNamespace,
-          labels: {}
+          labels: { app: appName }
         },
         spec: {
           replicas: this.createForm.spec.replicas,
@@ -1049,7 +1066,7 @@ export default {
         metadata: {
           name: this.createForm.spec.serviceName || `${appName}-headless`,
           namespace: this.selectedNamespace,
-          labels: {}
+          labels: { app: appName }
         },
         spec: {
           clusterIP: 'None',
@@ -1484,6 +1501,7 @@ export default {
         pvcName: '',
         configMapName: '',
         secretName: '',
+        volumeClaimTemplateName: '',
         hostPath: '',
         hostPathType: '',
         medium: '',
