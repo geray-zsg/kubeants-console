@@ -25,20 +25,20 @@ const actions = {
   },
 
   async getDaemonsetsDetail(_, { wsName, nsName, dsName }) {
-    console.log('前端传递删除deploy的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', dsName)
+    console.log('前端传递删除dsObj的wsName：', wsName, '获取的ns', nsName, 'dsObj名称：', dsName)
     const res = await getDaemonsetsDetail(wsName, nsName, dsName)
     return res
   },
-  async createDaemonsets(_, { wsName, nsName, dsName, deploy }) {
-    const res = await createDaemonsets(wsName, nsName, dsName, deploy)
+  async createDaemonsets(_, { wsName, nsName, dsName, dsObj }) {
+    const res = await createDaemonsets(wsName, nsName, dsName, dsObj)
     return res
   },
-  async updateDaemonsets(_, { wsName, nsName, dsName, deploy }) {
-    const res = await updateDaemonsets(wsName, nsName, dsName, deploy)
+  async updateDaemonsets(_, { wsName, nsName, dsName, dsObj }) {
+    const res = await updateDaemonsets(wsName, nsName, dsName, dsObj)
     return res
   },
   async deleteDaemonsets(_, { wsName, nsName, dsName }) {
-    console.log('前端传递删除deploy的wsName：', wsName, '获取的ns', nsName, 'deploy名称：', dsName)
+    console.log('前端传递删除dsObj的wsName：', wsName, '获取的ns', nsName, 'dsObj名称：', dsName)
     const res = await deleteDaemonsets(wsName, nsName, dsName)
     return res
   }
