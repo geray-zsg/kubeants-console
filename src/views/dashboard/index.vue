@@ -771,7 +771,7 @@ export default {
               name: this.userForm.username
             },
             spec: {
-              displayName: this.userForm.displayName,
+              name: this.userForm.displayName,
               email: this.userForm.email,
               phone: this.userForm.phone,
               state: this.userForm.state
