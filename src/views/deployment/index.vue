@@ -996,16 +996,16 @@ export default {
         metadata: {
           name: appName,
           namespace: this.selectedNamespace,
-          labels: { app: appName }
+          labels: { app: appName, 'app.kubernetes.io/component': 'deployment' }
         },
         spec: {
           replicas: this.createForm.spec.replicas,
           selector: {
-            matchLabels: { app: appName }
+            matchLabels: { app: appName, 'app.kubernetes.io/component': 'deployment' }
           },
           template: {
             metadata: {
-              labels: { app: appName }
+              labels: { app: appName, 'app.kubernetes.io/component': 'deployment' }
             },
             spec: {
               containers,

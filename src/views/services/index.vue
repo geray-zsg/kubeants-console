@@ -427,6 +427,14 @@ export default {
   watch: {
     filteredServicesByType() {
       this.currentPage = 1
+    },
+    // 监听表单变化，实时同步到YAML
+    svcForm: {
+      deep: true,
+      handler() {
+        if (this.syncingFrom === 'yaml') return
+        this.syncFromForm()
+      }
     }
   },
   async created() {
@@ -582,6 +590,8 @@ export default {
       this.createActiveTab = 'form'
       this.workload = { kind: '', name: '' }
       this.workloadOptions = []
+      this.isEdit = false
+      this.editingServiceName = ''
 
       // 重置表单
       this.svcForm = {
@@ -589,71 +599,66 @@ export default {
         type: 'ClusterIP',
         sessionAffinity: 'None',
         selector: [{ key: '', value: '' }],
-        ports: [{ name: '', port: null, targetPort: '', protocol: 'TCP', nodePort: null }],
+        ports: [{ name: '', port: null, targetPort: '80', protocol: 'TCP', nodePort: null }],
         labels: [{ key: '', value: '' }]
       }
 
-      // 直接生成默认 YAML 模板（用表单数据生成，保证一致）
+      // 直接生成默认 YAML 模板
       this.createYamlContent = this.dumpYamlFromForm()
-    },
-
-    // 默认 YAML 模板
-    defaultServiceYaml() {
-      const name = this.svcForm.name || 'my-service'
-      return yaml.dump({
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name,
-          labels: {}
-        },
-        spec: {
-          type: 'ClusterIP',
-          sessionAffinity: 'None',
-          selector: {},
-          ports: [
-            { port: 80, targetPort: 80, protocol: 'TCP' }
-          ]
-        }
-      })
     },
 
     // 表单 -> manifest -> YAML
     dumpYamlFromForm() {
       const sel = {}
-  this.svcForm.selector?.forEach(x => {
-    if (x.key && x.value) sel[x.key] = String(x.value)
-  })
+      this.svcForm.selector?.forEach(x => {
+        if (x.key && x.value) sel[x.key] = String(x.value)
+      })
 
-  const labels = {}
-  this.svcForm.labels?.forEach(x => {
-    if (x.key) labels[x.key] = String(x.value || '')
-  })
+      const labels = {}
+      this.svcForm.labels?.forEach(x => {
+        if (x.key) labels[x.key] = String(x.value || '')
+      })
 
-  const ports = (this.svcForm.ports || []).length
-    ? this.svcForm.ports.filter(p => p.port).map(p => ({
-      name: p.name || undefined,
-      port: Number(p.port) || 80,
-      targetPort: p.targetPort || 80,
-      protocol: p.protocol || 'TCP',
-      ...(this.svcForm.type !== 'ClusterIP' && p.nodePort ? { nodePort: Number(p.nodePort) } : {})
-    }))
-    : [{ port: 80, targetPort: 80, protocol: 'TCP' }]
+      const ports = (this.svcForm.ports || []).length
+        ? this.svcForm.ports.filter(p => p.port).map(p => {
+          // 处理targetPort，确保是数字或字符串
+          let targetPort = p.targetPort || '80'
+          // 如果是数字字符串，转换为数字
+          if (typeof targetPort === 'string' && !isNaN(targetPort) && targetPort.trim() !== '') {
+            targetPort = parseInt(targetPort, 10)
+          }
 
-  return yaml.dump({
-    apiVersion: 'v1',
-    kind: 'Service',
-    metadata: {
-      name: this.svcForm.name || 'my-service',
-      labels
-    },
-    spec: {
-      type: this.svcForm.type || 'ClusterIP',
-      sessionAffinity: this.svcForm.sessionAffinity || 'None',
-      selector: Object.keys(sel).length ? sel : {},
-      ports
-    }
-  })
+          const portObj = {
+            name: p.name || undefined,
+            port: Number(p.port) || 80,
+            targetPort: targetPort,
+            protocol: p.protocol || 'TCP'
+          }
+
+          // 只有NodePort和LoadBalancer类型才有nodePort
+          if ((this.svcForm.type === 'NodePort' || this.svcForm.type === 'LoadBalancer') && p.nodePort) {
+            portObj.nodePort = Number(p.nodePort)
+          }
+
+          return portObj
+        })
+        : [{ port: 80, targetPort: 80, protocol: 'TCP' }]
+
+      return yaml.dump({
+        apiVersion: 'v1',
+        kind: 'Service',
+        metadata: {
+          name: this.svcForm.name || 'my-service',
+          namespace: this.selectedNamespace,
+          labels
+        },
+        spec: {
+          type: this.svcForm.type || 'ClusterIP',
+          sessionAffinity: this.svcForm.sessionAffinity || 'None',
+          selector: Object.keys(sel).length ? sel : { app: this.svcForm.name || 'my-service' },
+          ports
+        }
+      })
     },
 
     // YAML -> 表单
@@ -683,11 +688,11 @@ export default {
           ? ports.map(p => ({
             name: p.name || '',
             port: p.port || null,
-            targetPort: (p.targetPort === 0 || p.targetPort) ? p.targetPort : '',
+            targetPort: (p.targetPort === 0 || p.targetPort) ? p.targetPort.toString() : '80',
             protocol: p.protocol || 'TCP',
             nodePort: p.nodePort || null
           }))
-          : [{ name: '', port: null, targetPort: '', protocol: 'TCP', nodePort: null }]
+          : [{ name: '', port: null, targetPort: '80', protocol: 'TCP', nodePort: null }]
 
         this.svcForm = {
           name: meta.name || '',
@@ -740,6 +745,7 @@ export default {
         if (!this.createYamlContent.trim()) {
           this.createYamlContent = this.dumpYamlFromForm()
         } else {
+          // 确保YAML内容是最新的表单数据
           this.createYamlContent = this.dumpYamlFromForm()
         }
       } else {
@@ -754,7 +760,7 @@ export default {
     addLabel() { this.svcForm.labels.push({ key: '', value: '' }); this.syncFromForm() },
     removeLabel(i) { this.svcForm.labels.splice(i, 1); if (!this.svcForm.labels.length) this.addLabel(); this.syncFromForm() },
 
-    addPort() { this.svcForm.ports.push({ name: '', port: null, targetPort: '', protocol: 'TCP', nodePort: null }); this.syncFromForm() },
+    addPort() { this.svcForm.ports.push({ name: '', port: null, targetPort: '80', protocol: 'TCP', nodePort: null }); this.syncFromForm() },
     removePort(i) { this.svcForm.ports.splice(i, 1); if (!this.svcForm.ports.length) this.addPort(); this.syncFromForm() },
 
     /* ========== 工作负载联动（可选） ========== */
@@ -819,6 +825,20 @@ export default {
           return
         }
       }
+
+      // 验证端口
+      for (let i = 0; i < this.svcForm.ports.length; i++) {
+        const p = this.svcForm.ports[i]
+        if (!p.port) {
+          this.$message.error(`第${i + 1}个端口的端口号（port）不能为空`)
+          return
+        }
+        if (!p.targetPort) {
+          this.$message.error(`第${i + 1}个端口的目标端口（targetPort）不能为空`)
+          return
+        }
+      }
+
       this.$refs.svcFormRef.validate(async(valid) => {
         if (!valid) return
 
@@ -863,32 +883,25 @@ export default {
         console.error(err)
       }
     },
-    // resetCreateDialog() {
-    //   this.yamlError = ''
-    //   this.syncingFrom = ''
-    //   this.createActiveTab = 'form'
-    //   this.workload = { kind: '', name: '' }
-    //   this.workloadOptions = []
-    //   this.isEdit = false
-    //   this.editingServiceName = ''
-
-    //   this.svcForm = {
-    //     name: '',
-    //     type: 'ClusterIP',
-    //     sessionAffinity: 'None',
-    //     selector: [{ key: '', value: '' }],
-    //     ports: [{ name: '', port: null, targetPort: '', protocol: 'TCP', nodePort: null }],
-    //     labels: [{ key: '', value: '' }]
-    //   }
-
-    //   this.createYamlContent = this.dumpYamlFromForm()
-    // },
     submitUpdate() {
       if (this.createActiveTab === 'yaml') {
         const okBefore = !this.yamlError
         this.applyYamlToForm(this.createYamlContent)
         if (!okBefore && this.yamlError) {
           this.$message.error('YAML 格式有误，请修正后再提交')
+          return
+        }
+      }
+
+      // 验证端口
+      for (let i = 0; i < this.svcForm.ports.length; i++) {
+        const p = this.svcForm.ports[i]
+        if (!p.port) {
+          this.$message.error(`第${i + 1}个端口的端口号（port）不能为空`)
+          return
+        }
+        if (!p.targetPort) {
+          this.$message.error(`第${i + 1}个端口的目标端口（targetPort）不能为空`)
           return
         }
       }

@@ -1028,17 +1028,17 @@ export default {
         metadata: {
           name: appName,
           namespace: this.selectedNamespace,
-          labels: { app: appName }
+          labels: { app: appName, 'app.kubernetes.io/component': 'statefulset' }
         },
         spec: {
           replicas: this.createForm.spec.replicas,
           serviceName: this.createForm.spec.serviceName || `${appName}-headless`,
           selector: {
-            matchLabels: { app: appName }
+            matchLabels: { app: appName, 'app.kubernetes.io/component': 'statefulset' }
           },
           template: {
             metadata: {
-              labels: { app: appName }
+              labels: { app: appName, 'app.kubernetes.io/component': 'statefulset' }
             },
             spec: {
               containers,
@@ -1066,7 +1066,7 @@ export default {
         metadata: {
           name: this.createForm.spec.serviceName || `${appName}-headless`,
           namespace: this.selectedNamespace,
-          labels: { app: appName }
+          labels: { app: appName, 'app.kubernetes.io/component': 'statefulset' }
         },
         spec: {
           clusterIP: 'None',
@@ -1082,7 +1082,7 @@ export default {
             }
             return ports
           }, []),
-          selector: { app: appName },
+          selector: { app: appName, 'app.kubernetes.io/component': 'statefulset' },
           sessionAffinity: 'None'
         }
       }

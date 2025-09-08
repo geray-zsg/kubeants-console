@@ -458,7 +458,8 @@
 import { mapGetters, mapActions } from 'vuex'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
-import { joinShellArgs, splitShellArgs, normalizeMountType } from '@/utils/shellArgUtils'
+// import { joinShellArgs, splitShellArgs, normalizeMountType } from '@/utils/shellArgUtils'
+import { joinShellArgs, splitShellArgs } from '@/utils/shellArgUtils'
 import { safeParseForm } from '@/utils/stsParser'
 
 export default {
@@ -824,117 +825,64 @@ export default {
           clean.volumeMounts = []
 
           container.volumeMounts.forEach(m => {
-            const volumeName = `${normalizeMountType(m.mountType)}-${m.pvcName || m.configMapName || m.secretName}`
+            let volumeName = ''
 
-            // 添加到 volumes 列表（避免重复）
-            // 处理挂载卷
-            // 处理挂载卷
-            if (Array.isArray(container.volumeMounts)) {
-              clean.volumeMounts = []
-
-              container.volumeMounts.forEach(m => {
-                let volumeName = ''
-
-                if (m.mountType === 'pvc') {
-                  // PVC挂载
-                  volumeName = `pvc-${m.pvcName}`
-
-                  // 添加到 volumes 列表（避免重复）
-                  if (!volumes.find(v => v.name === volumeName)) {
-                    volumes.push({
-                      name: volumeName,
-                      persistentVolumeClaim: { claimName: m.pvcName }
-                    })
-                  }
-                } else if (m.mountType === 'configMap') {
-                  // ConfigMap挂载
-                  volumeName = `configmap-${m.configMapName}`
-
-                  if (!volumes.find(v => v.name === volumeName)) {
-                    volumes.push({
-                      name: volumeName,
-                      configMap: { name: m.configMapName }
-                    })
-                  }
-                } else if (m.mountType === 'secret') {
-                  // Secret挂载
-                  volumeName = `secret-${m.secretName}`
-
-                  if (!volumes.find(v => v.name === volumeName)) {
-                    volumes.push({
-                      name: volumeName,
-                      secret: { secretName: m.secretName }
-                    })
-                  }
-                } else if (m.mountType === 'hostPath') {
-                  // HostPath挂载
-                  volumeName = `hostpath-${m.hostPath.replace(/\//g, '-')}` // 用路径来生成名称，替换/为-
-
-                  if (!volumes.find(v => v.name === volumeName)) {
-                    const hostPathVolume = {
-                      name: volumeName,
-                      hostPath: {
-                        path: m.hostPath
-                      }
-                    }
-
-                    if (m.hostPathType) {
-                      hostPathVolume.hostPath.type = m.hostPathType
-                    }
-
-                    volumes.push(hostPathVolume)
-                  }
-                } else if (m.mountType === 'emptyDir') {
-                  // EmptyDir挂载
-                  volumeName = `emptydir-${Math.random().toString(36).substr(2, 9)}` // 生成随机名称
-
-                  if (!volumes.find(v => v.name === volumeName)) {
-                    const emptyDirVolume = {
-                      name: volumeName,
-                      emptyDir: {}
-                    }
-
-                    if (m.medium) {
-                      emptyDirVolume.emptyDir.medium = m.medium
-                    }
-
-                    if (m.sizeLimit) {
-                      emptyDirVolume.emptyDir.sizeLimit = m.sizeLimit
-                    }
-
-                    volumes.push(emptyDirVolume)
-                  }
-                }
-
-                // 创建挂载配置
-                const vm = {
+            if (m.mountType === 'pvc') {
+              volumeName = `pvc-${m.pvcName}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
                   name: volumeName,
-                  mountPath: m.mountPath,
-                  readOnly: m.readOnly
+                  persistentVolumeClaim: { claimName: m.pvcName }
+                })
+              }
+            } else if (m.mountType === 'configMap') {
+              volumeName = `configmap-${m.configMapName}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  configMap: { name: m.configMapName }
+                })
+              }
+            } else if (m.mountType === 'secret') {
+              volumeName = `secret-${m.secretName}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  secret: { secretName: m.secretName }
+                })
+              }
+            } else if (m.mountType === 'hostPath') {
+              volumeName = `hostpath-${m.hostPath.replace(/\//g, '-')}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                const hostPathVolume = {
+                  name: volumeName,
+                  hostPath: { path: m.hostPath }
                 }
-
-                // 精细挂载：ConfigMap/Secret 且 key 存在
-                if ((m.mountType === 'configMap' || m.mountType === 'secret') && m.key) {
-                  vm.subPath = m.subPath || m.key
-                }
-
-                clean.volumeMounts.push(vm)
-              })
+                if (m.hostPathType) hostPathVolume.hostPath.type = m.hostPathType
+                volumes.push(hostPathVolume)
+              }
+            } else if (m.mountType === 'emptyDir') {
+              volumeName = `emptydir-${Math.random().toString(36).substr(2, 9)}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                const emptyDirVolume = { name: volumeName, emptyDir: {}}
+                if (m.medium) emptyDirVolume.emptyDir.medium = m.medium
+                if (m.sizeLimit) emptyDirVolume.emptyDir.sizeLimit = m.sizeLimit
+                volumes.push(emptyDirVolume)
+              }
             }
 
-            // 区分整卷挂载 vs 精细挂载
-            const vm = {
-              name: volumeName,
-              mountPath: m.mountPath,
-              readOnly: m.readOnly
+            // 生成挂载信息
+            if (volumeName) {
+              const vm = {
+                name: volumeName,
+                mountPath: m.mountPath,
+                readOnly: m.readOnly
+              }
+              if ((m.mountType === 'configMap' || m.mountType === 'secret') && m.key) {
+                vm.subPath = m.subPath || m.key
+              }
+              clean.volumeMounts.push(vm)
             }
-
-            // 精细挂载：ConfigMap/Secret 且 key 存在
-            if ((m.mountType === 'configMap' || m.mountType === 'secret') && m.key) {
-              vm.subPath = m.subPath || m.key
-            }
-
-            clean.volumeMounts.push(vm)
           })
         }
 
@@ -955,15 +903,15 @@ export default {
         metadata: {
           name: appName,
           namespace: this.selectedNamespace,
-          labels: { app: appName }
+          labels: { app: appName, 'app.kubernetes.io/component': 'daemonset' }
         },
         spec: {
           selector: {
-            matchLabels: { app: appName }
+            matchLabels: { app: appName, 'app.kubernetes.io/component': 'daemonset' }
           },
           template: {
             metadata: {
-              labels: { app: appName }
+              labels: { app: appName, 'app.kubernetes.io/component': 'daemonset' }
             },
             spec: {
               containers,
