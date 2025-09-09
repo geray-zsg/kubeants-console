@@ -1,5 +1,6 @@
 <template>
   <div class="cronjob-page">
+    <!-- 顶部过滤 -->
     <div class="filters">
       <span class="filter-label">工作空间：</span>
       <el-select v-model="selectedWorkspace" placeholder="选择工作空间" @change="onWorkspaceChange">
@@ -19,8 +20,9 @@
       />
     </div>
 
-    <!-- 操作栏：批量删除 + 类型筛选 -->
+    <!-- 操作栏 -->
     <div class="actions">
+      <el-button type="primary" size="mini" @click="openCreateDialog">新建 CronJob</el-button>
       <el-button
         type="danger"
         size="mini"
@@ -29,57 +31,57 @@
       >
         批量删除
       </el-button>
-
-      <el-select
-        v-model="selectedType"
-        placeholder="筛选类型"
-        clearable
-        style="width: 180px"
-        @change="handleTypeFilterChange"
-      >
-        <el-option
-          v-for="(count, type) in typeCounts"
-          :key="type"
-          :label="`${type} (${count})`"
-          :value="type"
-        />
-      </el-select>
     </div>
 
+    <!-- CronJob 表格 -->
     <div class="table-container">
       <el-table v-loading="loading" :data="pagedCronjobs || []" border style="flex: 1; overflow: auto" @selection-change="handleSelectionChange">
-        <!-- 多选框 -->
         <el-table-column type="selection" width="55" />
         <el-table-column prop="metadata.name" label="名称" width="200" />
         <el-table-column prop="metadata.namespace" label="命名空间" width="200" />
-        <el-table-column label="状态" width="100">
+        <el-table-column align="center" width="120">
+          <template #header>
+            <el-tooltip
+              content="状态说明：Pending=等待调度，Active=执行过任务，Running=有Job正在运行"
+              placement="top"
+            >
+              <span>状态</span>
+            </el-tooltip>
+          </template>
           <template v-slot="{ row }">
-            <el-tag :type="row.spec.suspend ? 'warning' : 'success'" size="small">
-              {{ row.spec.suspend ? '已暂停' : '运行中' }}
+            <el-tag :type="getCronJobStatusTagType(row)">
+              {{ getCronJobStatus(row) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="spec.startingDeadlineSeconds" label="启动超时时间" width="120" />
-        <el-table-column prop="spec.successfulJobsHistoryLimit" label="保留成功数" width="120" />
-        <el-table-column prop="spec.failedJobsHistoryLimit" label="保留失败数" width="120" />
         <el-table-column prop="spec.schedule" label="计划时间" width="200" />
+        <el-table-column prop="spec.concurrencyPolicy" label="并发策略" width="120" />
+        <el-table-column label="是否暂停" width="100">
+          <template v-slot="{ row }">
+            <el-tag :type="row.spec && row.spec.suspend ? 'warning' : 'success'" size="small">
+              {{ row.spec && row.spec.suspend ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
           <template v-slot="{ row }">
             {{ formatDate(row.metadata.creationTimestamp) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="200" align="center">
+        <el-table-column label="操作" fixed="right" width="240" align="center">
           <template v-slot="{ row }">
             <div class="action-buttons">
-              <el-button size="small" text @click="handleView(row)">详情</el-button>
+              <el-button size="small" @click="handleView(row)">详情</el-button>
+              <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
               <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无服务数据" />
+          <el-empty description="暂无 CronJob 数据" />
         </template>
       </el-table>
+
       <!-- 分页 -->
       <el-pagination
         background
@@ -87,14 +89,15 @@
         :current-page="currentPage"
         :page-sizes="[10, 20, 50, 100, 500]"
         :page-size="pageSize"
-        :total="filteredCronjobsByType.length"
+        :total="filteredCronjobs.length"
         style="margin-top: 16px; text-align: right"
         @current-change="handlePageChange"
         @size-change="handleSizeChange"
       />
     </div>
 
-    <el-dialog title="服务详情" :visible.sync="showYamlDialog" width="70%" @opened="refreshMonacoEditor">
+    <!-- 详情弹窗 -->
+    <el-dialog title="CronJob 详情" :visible.sync="showYamlDialog" width="70%">
       <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
         <monaco-editor
           ref="yamlViewer"
@@ -105,6 +108,451 @@
         />
       </div>
     </el-dialog>
+
+    <!-- 创建/编辑弹窗 -->
+    <el-dialog :title="isEditMode ? '编辑CronJob' : '创建CronJob'" :visible.sync="createDialogVisible" width="70%" top="5vh">
+      <el-tabs v-model="createTab">
+        <el-tab-pane label="表单模式" name="form">
+          <el-form :model="createForm" label-width="140px">
+            <!-- 基础信息 -->
+            <el-form-item label="名称" required>
+              <el-input v-model="createForm.metadata.name" placeholder="输入CronJob名称" />
+            </el-form-item>
+
+            <el-form-item label="命名空间">
+              <el-select v-model="createForm.metadata.namespace" placeholder="选择命名空间">
+                <el-option
+                  v-for="ns in filteredNamespaces"
+                  :key="ns.metadata.name"
+                  :label="ns.metadata.name"
+                  :value="ns.metadata.name"
+                />
+              </el-select>
+            </el-form-item>
+
+            <!-- CronJob特定配置 -->
+            <el-card class="box-card" style="margin-bottom: 20px;">
+              <div slot="header" class="clearfix">
+                <span>调度配置</span>
+              </div>
+              <el-form-item label="调度计划" required>
+                <el-input
+                  v-model="createForm.spec.schedule"
+                  placeholder="例如: 0 * * * *"
+                />
+                <div class="form-tip">
+                  常见示例：<br>
+                  <code>0 * * * *</code> → 每小时执行一次<br>
+                  <code>*/5 * * * *</code> → 每5分钟执行一次<br>
+                  <code>0 0 * * *</code> → 每天0点执行一次
+                </div>
+              </el-form-item>
+
+              <el-form-item label="并发策略">
+                <el-select v-model="createForm.spec.concurrencyPolicy" placeholder="选择并发策略">
+                  <el-option label="Allow" value="Allow" />
+                  <el-option label="Forbid" value="Forbid" />
+                  <el-option label="Replace" value="Replace" />
+                </el-select>
+                <span class="form-tip">控制如何处理并发执行</span>
+              </el-form-item>
+
+              <el-form-item label="启动超时时间">
+                <el-input-number v-model="createForm.spec.startingDeadlineSeconds" :min="0" />
+                <span class="form-tip">秒数，如果任务未能按计划启动，则视为失败</span>
+              </el-form-item>
+
+              <el-form-item label="保留成功Job数">
+                <el-input-number v-model="createForm.spec.successfulJobsHistoryLimit" :min="0" />
+                <span class="form-tip">保留多少个成功完成的Job记录</span>
+              </el-form-item>
+
+              <el-form-item label="保留失败Job数">
+                <el-input-number v-model="createForm.spec.failedJobsHistoryLimit" :min="0" />
+                <span class="form-tip">保留多少个失败的Job记录</span>
+              </el-form-item>
+
+              <el-form-item label="是否暂停">
+                <el-switch v-model="createForm.spec.suspend" />
+                <span class="form-tip">如果启用，将暂停CronJob的执行</span>
+              </el-form-item>
+            </el-card>
+
+            <!-- Job模板配置 -->
+            <el-card class="box-card" style="margin-bottom: 20px;">
+              <div slot="header" class="clearfix">
+                <span>Job模板配置</span>
+              </div>
+
+              <!-- Job配置 -->
+              <el-form-item label="完成数">
+                <el-input-number v-model="createForm.spec.jobTemplate.spec.completions" :min="1" />
+                <span class="form-tip">需要成功完成的Pod个数</span>
+              </el-form-item>
+
+              <el-form-item label="并行数">
+                <el-input-number v-model="createForm.spec.jobTemplate.spec.parallelism" :min="1" />
+                <span class="form-tip">最大同时运行的Pod个数</span>
+              </el-form-item>
+
+              <el-form-item label="重试限制">
+                <el-input-number v-model="createForm.spec.jobTemplate.spec.backoffLimit" :min="0" />
+                <span class="form-tip">失败后重试次数，默认6</span>
+              </el-form-item>
+
+              <el-form-item label="活跃期限">
+                <el-input v-model="createForm.spec.jobTemplate.spec.activeDeadlineSeconds" placeholder="单位：秒" />
+                <span class="form-tip">Job可运行的时间期限，超时则终止</span>
+              </el-form-item>
+
+              <el-form-item label="重启策略">
+                <el-select v-model="createForm.spec.jobTemplate.spec.template.spec.restartPolicy" placeholder="选择重启策略">
+                  <el-option label="OnFailure" value="OnFailure" />
+                  <el-option label="Never" value="Never" />
+                </el-select>
+                <span class="form-tip">Job只支持OnFailure或Never</span>
+              </el-form-item>
+            </el-card>
+
+            <!-- 容器管理 -->
+            <div class="container-management">
+              <el-tabs v-model="containerTab" class="container-tabs">
+                <el-tab-pane name="container">
+                  <span slot="label">工作容器 ({{ containerCounts.container }})</span>
+                </el-tab-pane>
+                <el-tab-pane name="initContainer">
+                  <span slot="label">初始化容器 ({{ containerCounts.initContainer }})</span>
+                </el-tab-pane>
+              </el-tabs>
+
+              <div class="container-actions">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="addContainer(containerTab)"
+                >
+                  + 添加{{ containerTab === 'container' ? '工作容器' : '初始化容器' }}
+                </el-button>
+              </div>
+            </div>
+
+            <!-- 容器列表 -->
+            <div
+              v-for="(container, idx) in currentContainers"
+              :key="container.id"
+              class="container-card"
+            >
+              <el-card>
+                <div slot="header" class="container-header">
+                  <span>{{ container.type === 'container' ? '工作容器' : '初始化容器' }} #{{ idx + 1 }}</span>
+                  <el-button
+                    type="text"
+                    icon="el-icon-delete"
+                    style="float:right; color: #F56C6C"
+                    @click="removeContainer(container.id)"
+                  />
+                </div>
+
+                <el-form-item label="容器名称" required>
+                  <el-input v-model="container.name" placeholder="输入容器名称" />
+                </el-form-item>
+                <el-form-item label="镜像" required>
+                  <el-input v-model="container.image" placeholder="输入镜像地址" />
+                </el-form-item>
+
+                <!-- 端口配置 -->
+                <el-form-item label="端口配置">
+                  <div v-if="container.ports && container.ports.length > 0">
+                    <div style="display: flex; font-weight: bold; margin-bottom: 6px;">
+                      <span style="width: 100px;">协议</span>
+                      <span style="width: 140px;">名称</span>
+                      <span style="width: 120px;">容器端口</span>
+                      <span style="flex: 1" />
+                    </div>
+
+                    <div
+                      v-for="(port, portIdx) in container.ports"
+                      :key="portIdx"
+                      style="display: flex; align-items: center; margin-bottom: 10px"
+                    >
+                      <el-select
+                        v-model="port.protocol"
+                        placeholder="协议"
+                        style="width: 100px"
+                        @change="onProtocolChange(container, portIdx)"
+                      >
+                        <el-option label="TCP" value="TCP" />
+                        <el-option label="UDP" value="UDP" />
+                      </el-select>
+
+                      <el-input
+                        v-model="port.name"
+                        placeholder="名称"
+                        style="width: 140px; margin-left: 10px"
+                        clearable
+                      />
+
+                      <el-input-number
+                        v-model="port.containerPort"
+                        :min="1"
+                        :max="65535"
+                        placeholder="容器端口"
+                        style="width: 120px; margin-left: 10px"
+                      />
+
+                      <el-button
+                        type="text"
+                        icon="el-icon-delete"
+                        style="color: #F56C6C; margin-left: 10px"
+                        @click="removePort(container, portIdx)"
+                      />
+                    </div>
+                  </div>
+
+                  <el-button
+                    size="mini"
+                    type="primary"
+                    icon="el-icon-plus"
+                    @click="addPort(container)"
+                  >
+                    添加端口
+                  </el-button>
+                </el-form-item>
+
+                <el-form-item label="资源配额">
+                  <div style="display: flex; flex-wrap: wrap; gap: 10px">
+                    <!-- 第一行 -->
+                    <div style="display: flex; gap: 10px; width: 100%">
+                      <el-form-item label="CPU请求" label-width="80px">
+                        <el-input
+                          :value="getContainerResource(container, 'requests', 'cpu')"
+                          placeholder="100m"
+                          style="width: 150px"
+                          @input="updateContainerResource(container, 'requests', 'cpu', $event)"
+                        />
+                      </el-form-item>
+                      <el-form-item label="内存请求" label-width="80px">
+                        <el-input
+                          :value="getContainerResource(container, 'requests', 'memory')"
+                          placeholder="128Mi"
+                          style="width: 150px"
+                          @input="updateContainerResource(container, 'requests', 'memory', $event)"
+                        />
+                      </el-form-item>
+                    </div>
+                    <!-- 第二行 -->
+                    <div style="display: flex; gap: 10px; width: 100%">
+                      <el-form-item label="CPU上限" label-width="80px">
+                        <el-input
+                          :value="getContainerResource(container, 'limits', 'cpu')"
+                          placeholder="500m"
+                          style="width: 150px"
+                          @input="updateContainerResource(container, 'limits', 'cpu', $event)"
+                        />
+                      </el-form-item>
+                      <el-form-item label="内存上限" label-width="80px">
+                        <el-input
+                          :value="getContainerResource(container, 'limits', 'memory')"
+                          placeholder="512Mi"
+                          style="width: 150px"
+                          @input="updateContainerResource(container, 'limits', 'memory', $event)"
+                        />
+                      </el-form-item>
+                    </div>
+                  </div>
+                </el-form-item>
+
+                <el-form-item label="镜像拉取策略">
+                  <el-select
+                    v-model="container.imagePullPolicy"
+                    placeholder="选择策略"
+                    style="width: 200px"
+                  >
+                    <el-option label="Always" value="Always" />
+                    <el-option label="IfNotPresent" value="IfNotPresent" />
+                    <el-option label="Never" value="Never" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="启动命令（command）">
+                  <el-input
+                    v-model="container.command"
+                    type="textarea"
+                    placeholder="每行一条命令参数，例如：/bin/sh"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                  />
+                </el-form-item>
+
+                <el-form-item label="启动参数（args）">
+                  <el-input
+                    v-model="container.args"
+                    type="textarea"
+                    placeholder="每行一个参数，例如：-c\nwhile true; do echo hello; sleep 10; done"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                  />
+                </el-form-item>
+
+                <el-form-item label="挂载卷">
+                  <div
+                    v-for="(mount, mountIdx) in container.volumeMounts"
+                    :key="mountIdx"
+                    style="margin-bottom: 10px; display: flex; gap: 10px"
+                  >
+                    <!-- 挂载类型 -->
+                    <el-select v-model="mount.mountType" placeholder="挂载类型" style="width: 120px">
+                      <el-option label="PVC" value="pvc" />
+                      <el-option label="ConfigMap" value="configMap" />
+                      <el-option label="Secret" value="secret" />
+                      <el-option label="HostPath" value="hostPath" />
+                      <el-option label="EmptyDir" value="emptyDir" />
+                    </el-select>
+
+                    <!-- PVC -->
+                    <template v-if="mount.mountType === 'pvc'">
+                      <el-select v-model="mount.pvcName" placeholder="选择 PVC" style="width: 160px">
+                        <el-option
+                          v-for="pvc in pvcList"
+                          :key="pvc.metadata.name"
+                          :label="pvc.metadata.name"
+                          :value="pvc.metadata.name"
+                        />
+                      </el-select>
+                    </template>
+
+                    <!-- HostPath 类型 -->
+                    <template v-else-if="mount.mountType === 'hostPath'">
+                      <el-input v-model="mount.hostPath" placeholder="主机路径" style="width: 160px" />
+                      <el-select v-model="mount.hostPathType" placeholder="路径类型" style="width: 120px">
+                        <el-option label="Directory" value="Directory" />
+                        <el-option label="File" value="File" />
+                        <el-option label="Socket" value="Socket" />
+                        <el-option label="CharDevice" value="CharDevice" />
+                        <el-option label="BlockDevice" value="BlockDevice" />
+                      </el-select>
+                    </template>
+
+                    <!-- EmptyDir 类型 -->
+                    <template v-else-if="mount.mountType === 'emptyDir'">
+                      <el-select v-model="mount.medium" placeholder="存储介质" style="width: 120px">
+                        <el-option label="默认" value="" />
+                        <el-option label="Memory" value="Memory" />
+                      </el-select>
+                      <el-input v-model="mount.sizeLimit" placeholder="大小限制" style="width: 120px" />
+                    </template>
+
+                    <!-- ConfigMap -->
+                    <template v-else-if="mount.mountType === 'configMap'">
+                      <el-select
+                        v-model="mount.configMapName"
+                        placeholder="选择 ConfigMap"
+                        style="width: 160px"
+                        @change="updateAvailableKeys"
+                      >
+                        <el-option
+                          v-for="cm in configMapList"
+                          :key="cm.metadata.name"
+                          :label="cm.metadata.name"
+                          :value="cm.metadata.name"
+                        />
+                      </el-select>
+
+                      <el-select
+                        v-model="mount.key"
+                        placeholder="键名（key）"
+                        style="width: 120px"
+                        @change="mount.subPath = mount.key"
+                      >
+                        <el-option
+                          v-for="key in mount.availableKeys || []"
+                          :key="key"
+                          :label="key"
+                          :value="key"
+                        />
+                      </el-select>
+
+                      <el-input v-model="mount.subPath" placeholder="子路径（subPath）" style="width: 120px" />
+                    </template>
+
+                    <!-- Secret -->
+                    <template v-else-if="mount.mountType === 'secret'">
+                      <el-select
+                        v-model="mount.secretName"
+                        placeholder="选择 Secret"
+                        style="width: 160px"
+                        @change="updateAvailableKeys"
+                      >
+                        <el-option
+                          v-for="secret in secretList"
+                          :key="secret.metadata.name"
+                          :label="secret.metadata.name"
+                          :value="secret.metadata.name"
+                        />
+                      </el-select>
+
+                      <el-select
+                        v-model="mount.key"
+                        placeholder="键名（key）"
+                        style="width: 120px"
+                        @change="mount.subPath = mount.key"
+                      >
+                        <el-option
+                          v-for="key in mount.availableKeys || []"
+                          :key="key"
+                          :label="key"
+                          :value="key"
+                        />
+                      </el-select>
+
+                      <el-input v-model="mount.subPath" placeholder="子路径（subPath）" style="width: 120px" />
+                    </template>
+
+                    <!-- 挂载路径 -->
+                    <el-input v-model="mount.mountPath" placeholder="挂载路径" style="width: 200px" />
+
+                    <!-- 挂载模式 -->
+                    <el-select v-model="mount.readOnly" placeholder="挂载模式" style="width: 120px">
+                      <el-option label="读写" :value="false" />
+                      <el-option label="只读" :value="true" />
+                    </el-select>
+
+                    <el-button icon="el-icon-delete" type="text" @click="removeMount(container, mountIdx)" />
+                  </div>
+
+                  <el-button type="primary" size="mini" @click="addMount(container)">+ 添加挂载</el-button>
+                </el-form-item>
+              </el-card>
+            </div>
+
+            <!-- 无容器提示 -->
+            <div v-if="currentContainers.length === 0" class="no-container">
+              <el-alert
+                type="info"
+                :closable="false"
+                title="请添加至少一个容器"
+              />
+            </div>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- YAML模式 -->
+        <el-tab-pane label="YAML 模式" name="yaml">
+          <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
+            <monaco-editor
+              ref="createEditor"
+              v-model="createYamlContent"
+              language="yaml"
+              theme="vs-dark"
+              :options="detailEditorOptions"
+            />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ isEditMode ? '更新' : '创建' }}</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -112,6 +560,8 @@
 import { mapGetters, mapActions } from 'vuex'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
+import { joinShellArgs, splitShellArgs } from '@/utils/shellArgUtils'
+import { safeParseCronJobForm } from '@/utils/cronjobParser'
 
 export default {
   components: { MonacoEditor },
@@ -120,10 +570,14 @@ export default {
       selectedWorkspace: '',
       selectedNamespace: '',
       searchText: '',
+      loading: false,
+      selectedCronjobs: [],
+      pageSize: 10,
+      currentPage: 1,
       showYamlDialog: false,
       yamlContent: '',
       detailEditorOptions: {
-        readOnly: true,
+        readOnly: false,
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 14,
@@ -131,12 +585,49 @@ export default {
         folding: true,
         wordWrap: 'on'
       },
-      loading: false,
-      selectedCronjobs: [],
-      pageSize: 10,
-      currentPage: 1,
-      selectedType: '',
-      currentService: null
+      createDialogVisible: false,
+      createTab: 'form',
+      createYamlContent: '',
+      isEditMode: false,
+      containerTab: 'container',
+      containerIdCounter: 0,
+      allContainers: [],
+      pvcList: [],
+      configMapList: [],
+      secretList: [],
+      lastYamlContent: '',
+      isYamlModified: false,
+      createForm: {
+        metadata: {
+          name: '',
+          namespace: ''
+        },
+        spec: {
+          schedule: '0 * * * *',
+          concurrencyPolicy: 'Allow',
+          startingDeadlineSeconds: null,
+          successfulJobsHistoryLimit: 3,
+          failedJobsHistoryLimit: 1,
+          suspend: false,
+          jobTemplate: {
+            spec: {
+              completions: 1,
+              parallelism: 1,
+              backoffLimit: 6,
+              activeDeadlineSeconds: null,
+              template: {
+                metadata: {
+                  labels: {}
+                },
+                spec: {
+                  restartPolicy: 'OnFailure',
+                  containers: []
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   computed: {
@@ -144,33 +635,47 @@ export default {
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('cronjobs', ['cronjobs']),
     filteredNamespaces() {
-      return this.namespaces.filter(ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace)
+      return this.namespaces.filter(
+        ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
+      )
     },
     filteredCronjobs() {
+      if (!this.cronjobs) return []
       return this.searchText
-        ? this.cronjobs.filter(s => s.metadata.name.includes(this.searchText))
+        ? this.cronjobs.filter(j => j.metadata.name.includes(this.searchText))
         : this.cronjobs
     },
-    typeCounts() {
-      const counts = {}
-      this.cronjobs.forEach(cronjob => {
-        const type = cronjob.spec?.type || 'Unknown'
-        counts[type] = (counts[type] || 0) + 1
-      })
-      return counts
-    },
-    filteredCronjobsByType() {
-      if (!this.selectedType) return this.filteredCronjobs
-      return this.filteredCronjobs.filter(cronjob => cronjob.spec?.type === this.selectedType)
-    },
     pagedCronjobs() {
+      if (!this.filteredCronjobs) return []
       const start = (this.currentPage - 1) * this.pageSize
-      return this.filteredCronjobsByType.slice(start, start + this.pageSize)
+      return this.filteredCronjobs.slice(start, start + this.pageSize)
+    },
+    currentContainers() {
+      return this.allContainers.filter(c => c.type === this.containerTab)
+    },
+    containerCounts() {
+      return {
+        container: this.allContainers.filter(c => c.type === 'container').length,
+        initContainer: this.allContainers.filter(c => c.type === 'initContainer').length
+      }
     }
   },
   watch: {
-    filteredCronjobsByType() {
+    filteredCronjobs() {
       this.currentPage = 1
+    },
+    createTab(newVal) {
+      if (newVal === 'yaml') {
+        this.generateYamlFromForm()
+      } else if (newVal === 'form') {
+        try {
+          const parsed = yaml.load(this.createYamlContent)
+          this.createForm = safeParseCronJobForm(parsed)
+        } catch (err) {
+          this.$message.error('YAML 格式错误，无法解析到表单')
+          this.createTab = 'yaml'
+        }
+      }
     }
   },
   async created() {
@@ -183,16 +688,117 @@ export default {
   methods: {
     ...mapActions('dashboard', ['getWorkspaces']),
     ...mapActions('workspace', ['getNamespaces']),
+    ...mapActions('storageclass', ['getStorageclass']),
+    ...mapActions('persistentvolumeclaims', ['getPersistentVolumeClaims']),
+    ...mapActions('configmap', ['getConfigmap']),
+    ...mapActions('secrets', ['getSecrets']),
     ...mapActions('cronjobs', [
       'getCronjobs',
       'getCronjobsDetail',
+      'createCronjobs',
+      'updateCronjobs',
       'deleteCronjobs'
     ]),
 
-    // 新增分页大小改变处理方法
-    handleSizeChange(size) {
-      this.pageSize = size
-      this.currentPage = 1
+    updateAvailableKeys() {
+      this.allContainers.forEach(container => {
+        if (!Array.isArray(container.volumeMounts)) return
+        container.volumeMounts.forEach(mount => {
+          if (mount.mountType === 'configMap') {
+            const cm = this.configMapList.find(c => c.metadata.name === mount.configMapName)
+            this.$set(mount, 'availableKeys', cm ? Object.keys(cm.data || {}) : [])
+          } else if (mount.mountType === 'secret') {
+            const sec = this.secretList.find(s => s.metadata.name === mount.secretName)
+            this.$set(mount, 'availableKeys', sec ? Object.keys(sec.data || {}) : [])
+          } else {
+            this.$set(mount, 'availableKeys', [])
+          }
+        })
+      })
+    },
+
+    pushContainerFromYaml(container, type = 'container', volumes = []) {
+      const mounts = (container.volumeMounts || []).map(m => {
+        const volume = volumes.find(v => v.name === m.name)
+        let mountType = 'unknown'
+        let pvcName = ''
+        let configMapName = ''
+        let secretName = ''
+        let hostPath = ''
+        let hostPathType = ''
+        let medium = ''
+        let sizeLimit = ''
+        let key = ''
+        const subPath = m.subPath || ''
+
+        if (volume?.persistentVolumeClaim) {
+          mountType = 'pvc'
+          pvcName = volume.persistentVolumeClaim.claimName
+        } else if (volume?.configMap) {
+          mountType = 'configMap'
+          configMapName = volume.configMap.name
+        } else if (volume?.secret) {
+          mountType = 'secret'
+          secretName = volume.secret.secretName
+        } else if (volume?.hostPath) {
+          mountType = 'hostPath'
+          hostPath = volume.hostPath.path
+          hostPathType = volume.hostPath.type || ''
+        } else if (volume?.emptyDir) {
+          mountType = 'emptyDir'
+          medium = volume.emptyDir.medium || ''
+          sizeLimit = volume.emptyDir.sizeLimit || ''
+        }
+
+        // 推测 ConfigMap/Secret 挂载的 key
+        if ((mountType === 'configMap' || mountType === 'secret') && subPath) {
+          key = subPath
+        }
+
+        return {
+          mountType,
+          pvcName,
+          configMapName,
+          secretName,
+          hostPath,
+          hostPathType,
+          medium,
+          sizeLimit,
+          mountPath: m.mountPath,
+          readOnly: typeof m.readOnly === 'boolean' ? m.readOnly : false,
+          subPath,
+          key
+        }
+      })
+
+      // 确保资源配额有默认值
+      const resources = container.resources || {}
+      const requests = resources.requests || {}
+      const limits = resources.limits || {}
+
+      const mapped = {
+        id: ++this.containerIdCounter,
+        type,
+        name: container.name || '',
+        image: container.image || '',
+        imagePullPolicy: container.imagePullPolicy || 'IfNotPresent',
+        ports: container.ports || [],
+        resources: {
+          requests: {
+            cpu: requests.cpu || '100m',
+            memory: requests.memory || '128Mi'
+          },
+          limits: {
+            cpu: limits.cpu || '500m',
+            memory: limits.memory || '512Mi'
+          }
+        },
+        volumeMounts: mounts,
+        command: joinShellArgs(container.command),
+        args: joinShellArgs(container.args)
+      }
+
+      this.allContainers.push(mapped)
     },
 
     async onWorkspaceChange() {
@@ -201,7 +807,7 @@ export default {
       const filtered = this.filteredNamespaces
       if (filtered.length > 0) {
         this.selectedNamespace = filtered[0].metadata.name
-        this.fetchCronjobs()
+        await this.fetchCronjobs()
       }
     },
 
@@ -209,19 +815,432 @@ export default {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
       this.loading = true
       try {
-        await this.getCronjobs({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+        await this.getCronjobs({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace
+        })
+      } catch (error) {
+        console.error('获取Cronjobs失败:', error)
       } finally {
         this.loading = false
       }
     },
 
-    formatDate(dateStr) {
-      if (!dateStr) return '-'
-      return new Date(dateStr).toLocaleString()
+    // 确保在打开创建对话框时获取相关资源列表
+    async openCreateDialog() {
+      this.isEditMode = false
+      this.createForm = {
+        metadata: {
+          name: '',
+          namespace: this.selectedNamespace
+        },
+        spec: {
+          schedule: '0 * * * *',
+          concurrencyPolicy: 'Allow',
+          startingDeadlineSeconds: null,
+          successfulJobsHistoryLimit: 3,
+          failedJobsHistoryLimit: 1,
+          suspend: false,
+          jobTemplate: {
+            spec: {
+              completions: 1,
+              parallelism: 1,
+              backoffLimit: 6,
+              activeDeadlineSeconds: null,
+              template: {
+                metadata: {
+                  labels: {}
+                },
+                spec: {
+                  restartPolicy: 'OnFailure',
+                  containers: []
+                }
+              }
+            }
+          }
+        }
+      }
+      this.allContainers = [this.createContainer('container')]
+      this.containerTab = 'container'
+      this.createDialogVisible = true
+
+      // 获取相关资源列表
+      await this.fetchPVCs()
+      await this.fetchCMs()
+      await this.fetchSecrets()
+    },
+
+    // 创建容器对象
+    createContainer(type) {
+      return {
+        id: ++this.containerIdCounter,
+        type,
+        name: '',
+        image: '',
+        ports: [],
+        resources: {
+          requests: { cpu: '100m', memory: '128Mi' },
+          limits: { cpu: '500m', memory: '512Mi' }
+        },
+        imagePullPolicy: 'IfNotPresent',
+        command: '',
+        args: '',
+        volumeMounts: []
+      }
+    },
+
+    // 添加容器
+    addContainer(type) {
+      this.allContainers.push(this.createContainer(type))
+    },
+
+    // 删除容器
+    removeContainer(id) {
+      const index = this.allContainers.findIndex(c => c.id === id)
+      if (index !== -1) {
+        this.allContainers.splice(index, 1)
+      }
+    },
+
+    // 生成YAML
+    generateYamlFromForm() {
+      if (this.isYamlModified) {
+        console.warn('跳过 YAML 同步：用户改动了 YAML 不应覆盖')
+        return
+      }
+
+      const cronJobName = this.createForm.metadata.name
+      const volumes = []
+
+      const addResourceUnit = (value, type) => {
+        if (!value || typeof value !== 'string') return undefined
+        if (type === 'cpu') {
+          return value.match(/m$/) ? value : `${value}m`
+        } else if (type === 'memory') {
+          return value.match(/(Mi|Gi)$/) ? value : `${value}Mi`
+        }
+        return value
+      }
+
+      const processContainer = (container) => {
+        const clean = { ...container }
+        delete clean.id
+        delete clean.type
+
+        clean.command = splitShellArgs(container.command)
+        clean.args = splitShellArgs(container.args)
+
+        // 确保资源结构存在
+        const resources = container.resources || {}
+        const requests = resources.requests || {}
+        const limits = resources.limits || {}
+
+        clean.resources = {
+          requests: {
+            cpu: addResourceUnit(requests.cpu, 'cpu'),
+            memory: addResourceUnit(requests.memory, 'memory')
+          },
+          limits: {
+            cpu: addResourceUnit(limits.cpu, 'cpu'),
+            memory: addResourceUnit(limits.memory, 'memory')
+          }
+        }
+
+        clean.ports = (container.ports || [])
+          .filter(p => p.containerPort)
+          .map(p => {
+            const portObj = {
+              containerPort: p.containerPort,
+              protocol: p.protocol || 'TCP'
+            }
+            if (p.name) portObj.name = p.name
+            return portObj
+          })
+
+        if (clean.ports.length === 0) delete clean.ports
+
+        // 处理挂载卷
+        if (Array.isArray(container.volumeMounts)) {
+          clean.volumeMounts = []
+
+          container.volumeMounts.forEach(m => {
+            let volumeName = ''
+
+            if (m.mountType === 'pvc') {
+              volumeName = `pvc-${m.pvcName}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  persistentVolumeClaim: { claimName: m.pvcName }
+                })
+              }
+            } else if (m.mountType === 'configMap') {
+              volumeName = `configmap-${m.configMapName}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  configMap: { name: m.configMapName }
+                })
+              }
+            } else if (m.mountType === 'secret') {
+              volumeName = `secret-${m.secretName}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                volumes.push({
+                  name: volumeName,
+                  secret: { secretName: m.secretName }
+                })
+              }
+            } else if (m.mountType === 'hostPath') {
+              volumeName = `hostpath-${m.hostPath.replace(/\//g, '-')}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                const hostPathVolume = {
+                  name: volumeName,
+                  hostPath: { path: m.hostPath }
+                }
+                if (m.hostPathType) hostPathVolume.hostPath.type = m.hostPathType
+                volumes.push(hostPathVolume)
+              }
+            } else if (m.mountType === 'emptyDir') {
+              volumeName = `emptydir-${Math.random().toString(36).substr(2, 9)}`
+              if (!volumes.find(v => v.name === volumeName)) {
+                const emptyDirVolume = { name: volumeName, emptyDir: {}}
+                if (m.medium) emptyDirVolume.emptyDir.medium = m.medium
+                if (m.sizeLimit) emptyDirVolume.emptyDir.sizeLimit = m.sizeLimit
+                volumes.push(emptyDirVolume)
+              }
+            }
+
+            // 生成挂载信息
+            if (volumeName) {
+              const vm = {
+                name: volumeName,
+                mountPath: m.mountPath,
+                readOnly: m.readOnly
+              }
+              if ((m.mountType === 'configMap' || m.mountType === 'secret') && m.key) {
+                vm.subPath = m.subPath || m.key
+              }
+              clean.volumeMounts.push(vm)
+            }
+          })
+        }
+
+        return clean
+      }
+
+      const containers = this.allContainers
+        .filter(c => c.type === 'container' && c.name && c.image)
+        .map(processContainer)
+
+      const initContainers = this.allContainers
+        .filter(c => c.type === 'initContainer' && c.name && c.image)
+        .map(processContainer)
+
+      const cronJob = {
+        apiVersion: 'batch/v1',
+        kind: 'CronJob',
+        metadata: {
+          name: cronJobName,
+          namespace: this.createForm.metadata.namespace || this.selectedNamespace,
+          labels: {
+            app: cronJobName,
+            'app.kubernetes.io/component': 'cronjob'
+          }
+        },
+        spec: {
+          schedule: this.createForm.spec.schedule,
+          concurrencyPolicy: this.createForm.spec.concurrencyPolicy,
+          startingDeadlineSeconds: this.createForm.spec.startingDeadlineSeconds || undefined,
+          successfulJobsHistoryLimit: this.createForm.spec.successfulJobsHistoryLimit,
+          failedJobsHistoryLimit: this.createForm.spec.failedJobsHistoryLimit,
+          suspend: this.createForm.spec.suspend,
+          jobTemplate: {
+            spec: {
+              completions: this.createForm.spec.jobTemplate.spec.completions,
+              parallelism: this.createForm.spec.jobTemplate.spec.parallelism,
+              backoffLimit: this.createForm.spec.jobTemplate.spec.backoffLimit,
+              activeDeadlineSeconds: this.createForm.spec.jobTemplate.spec.activeDeadlineSeconds || undefined,
+              template: {
+                metadata: {
+                  labels: {
+                    app: cronJobName,
+                    'app.kubernetes.io/component': 'cronjob'
+                  }
+                },
+                spec: {
+                  restartPolicy: this.createForm.spec.jobTemplate.spec.template.spec.restartPolicy,
+                  containers,
+                  ...(initContainers.length > 0 ? { initContainers } : {}),
+                  ...(volumes.length > 0 ? { volumes } : {})
+                }
+              }
+            }
+          }
+        }
+      }
+
+      this.createYamlContent = yaml.dump(cronJob)
+      if (this.$refs.createEditor && this.$refs.createEditor.editor) {
+        this.$refs.createEditor.editor.setValue(this.createYamlContent)
+      }
+    },
+
+    // 解析YAML到表单
+    parseYamlToForm() {
+      try {
+        const editorValue = this.$refs.createEditor?.editor?.getValue?.()
+        const parsed = yaml.load(editorValue)
+
+        this.isYamlModified = false
+        this.lastYamlContent = editorValue
+        this.createYamlContent = editorValue
+
+        const form = safeParseCronJobForm(parsed)
+
+        // 同步 namespace
+        this.selectedNamespace = form.metadata.namespace || this.selectedNamespace
+
+        // 替换 createForm
+        this.createForm = {
+          metadata: form.metadata,
+          spec: form.spec
+        }
+
+        // 清空容器列表再回填
+        this.allContainers.splice(0, this.allContainers.length)
+        const containers = parsed?.spec?.jobTemplate?.spec?.template?.spec?.containers || []
+        const initContainers = parsed?.spec?.jobTemplate?.spec?.template?.spec?.initContainers || []
+        const volumes = parsed?.spec?.jobTemplate?.spec?.template?.spec?.volumes || []
+
+        containers.forEach(c => this.pushContainerFromYaml(c, 'container', volumes))
+        initContainers.forEach(c => this.pushContainerFromYaml(c, 'initContainer', volumes))
+
+        this.$message.success('已同步回表单模式')
+      } catch (err) {
+        this.$message.error('YAML 解析失败：' + err.message)
+        console.error(err)
+      }
+    },
+
+    async handleSubmit() {
+      let yamlContent = this.createYamlContent
+      // 如果当前是表单模式，我们需要生成YAML
+      if (this.createTab === 'form') {
+        this.generateYamlFromForm()
+        yamlContent = this.createYamlContent
+      }
+
+      let parsed
+      try {
+        parsed = yaml.load(yamlContent)
+      } catch (err) {
+        this.$message.error('YAML 格式错误: ' + err.message)
+        return
+      }
+
+      const cronJobName = parsed.metadata.name
+      const namespace = parsed.metadata.namespace || this.selectedNamespace
+
+      // 验证必填字段
+      if (!cronJobName) {
+        this.$message.error('CronJob名称不能为空')
+        return
+      }
+
+      if (!parsed.spec.schedule) {
+        this.$message.error('调度计划不能为空')
+        return
+      }
+
+      if (!parsed.spec.jobTemplate || !parsed.spec.jobTemplate.spec || !parsed.spec.jobTemplate.spec.template || !parsed.spec.jobTemplate.spec.template.spec || !parsed.spec.jobTemplate.spec.template.spec.containers) {
+        this.$message.error('容器配置不能为空')
+        return
+      }
+
+      try {
+        // 创建或更新CronJob
+        const action = this.isEditMode ? this.updateCronjobs : this.createCronjobs
+        await action({
+          wsName: this.selectedWorkspace,
+          nsName: namespace,
+          cjName: cronJobName,
+          cjObj: parsed
+        })
+
+        this.$message.success(`${this.isEditMode ? '更新' : '创建'}成功`)
+        this.createDialogVisible = false
+        this.fetchCronjobs()
+      } catch (err) {
+        this.$message.error(`${this.isEditMode ? '更新' : '创建'}失败: ${err.message}`)
+        console.error(err)
+      }
+    },
+
+    async handleEdit(row) {
+      this.isEditMode = true
+      this.createTab = 'form'
+
+      try {
+        // 获取 CronJob 详情
+        const detail = await this.getCronjobsDetail({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace,
+          cjName: row.metadata.name
+        })
+
+        // 同步 namespace
+        this.selectedNamespace = detail.metadata.namespace
+
+        // 解析 CronJob 到表单
+        const form = safeParseCronJobForm(detail)
+
+        this.createForm = {
+          metadata: form.metadata,
+          spec: form.spec
+        }
+
+        // 清空容器列表
+        this.allContainers = []
+        this.containerIdCounter = 0
+
+        const containers = detail?.spec?.jobTemplate?.spec?.template?.spec?.containers || []
+        const initContainers = detail?.spec?.jobTemplate?.spec?.template?.spec?.initContainers || []
+        const volumes = detail?.spec?.jobTemplate?.spec?.template?.spec?.volumes || []
+
+        // 确保每个容器都有正确的资源结构
+        containers.forEach(c => {
+          // 确保资源结构完整
+          if (!c.resources) c.resources = {}
+          if (!c.resources.requests) c.resources.requests = {}
+          if (!c.resources.limits) c.resources.limits = {}
+
+          this.pushContainerFromYaml(c, 'container', volumes)
+        })
+
+        initContainers.forEach(c => {
+          // 确保资源结构完整
+          if (!c.resources) c.resources = {}
+          if (!c.resources.requests) c.resources.requests = {}
+          if (!c.resources.limits) c.resources.limits = {}
+
+          this.pushContainerFromYaml(c, 'initContainer', volumes)
+        })
+
+        // 打开弹窗
+        this.createDialogVisible = true
+        await this.fetchPVCs()
+        await this.fetchCMs()
+        await this.fetchSecrets()
+      } catch (err) {
+        this.$message.error('获取 CronJob 详情失败')
+        console.error(err)
+        // 避免 createForm 被留在不完整的状态
+        this.createForm = safeParseCronJobForm({})
+      }
     },
 
     async handleDelete(row) {
-      this.$confirm(`确认删除服务 [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
+      this.$confirm(`确认删除 CronJob [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
         await this.deleteCronjobs({
           wsName: this.selectedWorkspace,
           nsName: this.selectedNamespace,
@@ -243,8 +1262,9 @@ export default {
         this.showYamlDialog = true
 
         this.$nextTick(() => {
-          this.$refs.yamlViewer?.editor?.setValue(this.yamlContent)
-          this.refreshMonacoEditor()
+          if (this.$refs.yamlViewer && this.$refs.yamlViewer.editor) {
+            this.$refs.yamlViewer.editor.setValue(this.yamlContent)
+          }
         })
       } catch (err) {
         this.$message.error('获取 YAML 详情失败')
@@ -252,34 +1272,13 @@ export default {
       }
     },
 
-    refreshMonacoEditor() {
-      this.$nextTick(() => {
-        this.$refs.yamlViewer?.editor?.layout()
-      })
-    },
-
-    getTypeTagType(type) {
-      switch (type) {
-        case 'ClusterIP':
-          return 'success'
-        case 'NodePort':
-          return 'warning'
-        case 'LoadBalancer':
-          return 'primary'
-        case 'ExternalName':
-          return 'info'
-        default:
-          return ''
-      }
-    },
-
     async handleBatchDelete() {
       if (this.selectedCronjobs.length === 0) {
-        this.$message.warning('请先选择要删除的服务')
+        this.$message.warning('请先选择要删除的 CronJob')
         return
       }
 
-      this.$confirm(`确认删除选中的 ${this.selectedCronjobs.length} 个服务？`, '提示', { type: 'warning' }).then(async() => {
+      this.$confirm(`确认删除选中的 ${this.selectedCronjobs.length} 个 CronJob？`, '提示', { type: 'warning' }).then(async() => {
         const tasks = this.selectedCronjobs.map(cronjob =>
           this.deleteCronjobs({
             wsName: this.selectedWorkspace,
@@ -298,33 +1297,191 @@ export default {
       })
     },
 
+    // CronJob状态获取
+    // 如果暂停：显示黄色标签 已暂停
+    // 如果运行：显示绿色标签 运行中
+    // 如果 spec 没取到：显示 未知
+    getCronJobStatus(cronJob) {
+      if (!cronJob || !cronJob.spec) return 'Unknown'
+      if (cronJob.spec.suspend) {
+        return 'Suspended'
+      }
+      // 有正在运行的 job
+      if (cronJob.status?.active && cronJob.status.active.length > 0) {
+        return 'Running'
+      }
+      // 执行过至少一次
+      if (cronJob.status?.lastScheduleTime) {
+        return 'Active'
+      }
+      // 还没执行过
+      return 'Pending'
+    },
+
+    getCronJobStatusTagType(cronJob) {
+      const status = this.getCronJobStatus(cronJob)
+      switch (status) {
+        case 'Active': return 'success'
+        case 'Suspended': return 'warning'
+        case 'Inactive': return 'info'
+        default: return ''
+      }
+    },
+
+    // 获取PVC、configmap和secret列表
+    async fetchPVCs() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      try {
+        this.pvcList = await this.getPersistentVolumeClaims({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace
+        })
+      } catch (error) {
+        console.error('获取PVC列表失败:', error)
+        this.pvcList = []
+      }
+    },
+
+    async fetchCMs() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      try {
+        this.configMapList = await this.getConfigmap({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace
+        })
+      } catch (error) {
+        console.error('获取configmap列表失败:', error)
+        this.configMapList = []
+      }
+    },
+
+    async fetchSecrets() {
+      if (!this.selectedWorkspace || !this.selectedNamespace) return
+      try {
+        this.secretList = await this.getSecrets({
+          wsName: this.selectedWorkspace,
+          nsName: this.selectedNamespace
+        })
+      } catch (error) {
+        console.error('获取secret列表失败:', error)
+        this.secretList = []
+      }
+    },
+
+    // 端口管理方法
+    addPort(container) {
+      if (!Array.isArray(container.ports)) {
+        this.$set(container, 'ports', [])
+      }
+
+      const protocol = 'TCP'
+      const index = container.ports.filter(p => p.protocol === protocol).length + 1
+      const defaultName = `${protocol.toLowerCase()}-${index}`
+
+      const existingNames = new Set(container.ports.map(p => p.name))
+      let name = defaultName
+      let i = index
+      while (existingNames.has(name)) {
+        i++
+        name = `${protocol.toLowerCase()}-${i}`
+      }
+
+      container.ports.push({
+        name,
+        containerPort: 80,
+        protocol
+      })
+    },
+
+    removePort(container, index) {
+      container.ports.splice(index, 1)
+    },
+
+    onProtocolChange(container, index) {
+      const port = container.ports[index]
+      if (!port) return
+
+      const protocol = port.protocol || 'TCP'
+      const base = protocol.toLowerCase()
+
+      const existingNames = new Set(container.ports.map((p, i) => i !== index && p.name))
+      let i = 1
+      let name = `${base}-${i}`
+      while (existingNames.has(name)) {
+        i++
+        name = `${base}-${i}`
+      }
+
+      if (!port.name || /^tcp-\d+$|^udp-\d+$/.test(port.name)) {
+        this.$set(port, 'name', name)
+      }
+    },
+
+    // 挂载卷管理方法
+    addMount(container) {
+      if (!container.volumeMounts) this.$set(container, 'volumeMounts', [])
+      const newMount = {
+        mountType: 'pvc',
+        pvcName: '',
+        configMapName: '',
+        secretName: '',
+        hostPath: '',
+        hostPathType: '',
+        medium: '',
+        sizeLimit: '',
+        mountPath: '',
+        key: '',
+        subPath: '',
+        readOnly: false,
+        availableKeys: []
+      }
+      container.volumeMounts.push(newMount)
+    },
+
+    removeMount(container, index) {
+      container.volumeMounts.splice(index, 1)
+    },
+
     handleSelectionChange(val) {
       this.selectedCronjobs = val
     },
-
     handlePageChange(page) {
       this.currentPage = page
     },
-
-    handleTypeFilterChange(val) {
-      this.selectedType = val
+    handleSizeChange(size) {
+      this.pageSize = size
       this.currentPage = 1
     },
-
-    getExternalIP(cronjob) {
-      if (cronjob.spec.type === 'LoadBalancer') {
-        if (cronjob.status?.loadBalancer?.ingress?.length) {
-          return cronjob.status.loadBalancer.ingress
-            .map(item => item.ip || item.hostname)
-            .join(', ')
-        }
-      }
-      return cronjob.spec.externalIPs?.join(', ') || '-'
+    formatDate(dateStr) {
+      return dateStr ? new Date(dateStr).toLocaleString() : '-'
     },
 
-    formatPorts(ports) {
-      if (!ports) return '-'
-      return ports.map(p => `${p.port}${p.targetPort ? `:${p.targetPort}` : ''}/${p.protocol || 'TCP'}`).join(', ')
+    // 获取容器资源值，如果不存在则返回默认值
+    getContainerResource(container, type, resource) {
+      if (!container.resources) {
+        this.$set(container, 'resources', {})
+      }
+      if (!container.resources[type]) {
+        this.$set(container.resources, type, {})
+      }
+
+      const defaultValue = type === 'requests'
+        ? (resource === 'cpu' ? '100m' : '128Mi')
+        : (resource === 'cpu' ? '500m' : '512Mi')
+
+      return container.resources[type][resource] || defaultValue
+    },
+
+    // 更新容器资源值
+    updateContainerResource(container, type, resource, value) {
+      if (!container.resources) {
+        this.$set(container, 'resources', {})
+      }
+      if (!container.resources[type]) {
+        this.$set(container.resources, type, {})
+      }
+
+      this.$set(container.resources[type], resource, value)
     }
   }
 }
@@ -335,13 +1492,16 @@ export default {
   padding: 20px;
   display: flex;
   flex-direction: column;
+  height: calc(100vh - 100px);
 }
+
 .filters {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
+
 .filter-label {
   font-size: 14px;
   color: #606266;
@@ -349,18 +1509,75 @@ export default {
   text-align: right;
   margin-right: 5px;
 }
+
 .action-buttons {
   display: flex;
   gap: 8px;
 }
+
 .table-container {
   flex: 1;
-  overflow-x: auto;
+  overflow: auto;
 }
+
 .actions {
   display: flex;
   align-items: center;
   gap: 12px;
   margin: 12px 0;
+}
+
+/* 容器管理样式 */
+.container-management {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.container-tabs {
+  flex: 1;
+}
+
+.container-actions {
+  margin-left: 20px;
+}
+
+.container-card {
+  margin-bottom: 20px;
+}
+
+.container-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.no-container {
+  margin: 20px 0;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.box-card {
+  margin-bottom: 20px;
+}
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.6;
+}
+.form-tip code {
+  background: #f4f4f5;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
 }
 </style>

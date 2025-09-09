@@ -305,7 +305,6 @@
               language="yaml"
               theme="vs-dark"
               :options="yamlEditorOptions"
-              @change="onYamlChange"
             />
           </div>
           <div v-if="yamlError" class="yaml-error">{{ yamlError }}</div>
@@ -425,15 +424,13 @@ export default {
     }
   },
   watch: {
-    filteredServicesByType() {
-      this.currentPage = 1
-    },
-    // 监听表单变化，实时同步到YAML
-    svcForm: {
-      deep: true,
-      handler() {
-        if (this.syncingFrom === 'yaml') return
-        this.syncFromForm()
+    createYamlContent(val) {
+      if (this.syncingFrom === 'form') return
+      this.syncingFrom = 'yaml'
+      try {
+        this.applyYamlToForm(val, { silentError: true })
+      } finally {
+        setTimeout(() => { this.syncingFrom = '' }, 0)
       }
     }
   },
@@ -741,11 +738,7 @@ export default {
     // 切换 Tab 时，做一次同步，确保显示的一侧是最新
     syncOnTabSwitch() {
       if (this.createActiveTab === 'yaml') {
-        // 如果 YAML 为空，用表单生成一次
         if (!this.createYamlContent.trim()) {
-          this.createYamlContent = this.dumpYamlFromForm()
-        } else {
-          // 确保YAML内容是最新的表单数据
           this.createYamlContent = this.dumpYamlFromForm()
         }
       } else {
