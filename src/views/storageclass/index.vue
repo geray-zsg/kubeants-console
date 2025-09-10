@@ -1,5 +1,6 @@
 <template>
   <div class="secret-page">
+    <!-- 过滤区域 -->
     <div class="filters">
       <span class="filter-label">工作空间：</span>
       <el-select v-model="selectedWorkspace" placeholder="选择 Workspace" @change="onWorkspaceChange">
@@ -14,20 +15,28 @@
       />
     </div>
 
-    <el-table :data="filteredstorageclass" border>
+    <!-- 表格 -->
+    <el-table
+      :data="pagedData"
+      border
+      style="width: 100%"
+      :header-cell-style="{ background: '#f5f7fa', fontWeight: 'bold' }"
+    >
       <el-table-column prop="metadata.name" label="名称" width="250" />
       <el-table-column prop="provisioner" label="动态存储插件" width="250" />
       <el-table-column prop="parameters.archiveOnDelete" label="配置参数" width="250" />
-      <el-table-column prop="reclaimPolicy" label="回收策略" width="250" />
-      <el-table-column prop="volumeBindingMode" label="绑定时机" width="250" />
+      <el-table-column prop="reclaimPolicy" label="回收策略" width="200" />
+      <el-table-column prop="volumeBindingMode" label="绑定时机" width="200" />
       <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="220">
         <template v-slot="{ row }">
           {{ formatDate(row.metadata.creationTimestamp) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作">
+
+      <!-- 操作列 -->
+      <el-table-column label="操作" fixed="right" width="120">
         <template v-slot="{ row }">
-          <el-button @click="handleView(row)">详情</el-button>
+          <el-button size="small" text @click="handleView(row)">详情</el-button>
         </template>
       </el-table-column>
 
@@ -36,8 +45,26 @@
       </template>
     </el-table>
 
+    <!-- 分页 -->
+    <el-pagination
+      background
+      layout="total, sizes, prev, pager, next"
+      :current-page="currentPage"
+      :page-sizes="[10, 20, 50, 100, 500]"
+      :page-size="pageSize"
+      :total="tableData.length"
+      style="margin-top: 16px; text-align: right"
+      @current-change="handlePageChange"
+      @size-change="handleSizeChange"
+    />
+
     <!-- YAML 详情弹窗 -->
-    <el-dialog :visible.sync="showYamlDialog" title="StorageClass 详情" width="70%" @opened="refreshMonacoEditor">
+    <el-dialog
+      title="StorageClass 详情"
+      :visible.sync="showYamlDialog"
+      width="70%"
+      @opened="refreshMonacoEditor"
+    >
       <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
         <monaco-editor
           ref="yamlEditor"
@@ -54,9 +81,11 @@
 <script>
 import { mapGetters, mapActions } from 'vuex'
 import yaml from 'js-yaml'
+import paginationMixin from '@/utils/pagination'
 import MonacoEditor from 'vue-monaco-editor'
 
 export default {
+  mixins: [paginationMixin],
   components: { MonacoEditor },
   data() {
     return {
@@ -80,15 +109,16 @@ export default {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('storageclass', ['storageclass']),
-    filteredNamespaces() {
-      return this.namespaces.filter(ns =>
-        ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
-      )
-    },
-    filteredstorageclass() {
+    // ✅ mixin 需要的输入
+    tableData() {
       if (!this.searchText) return this.storageclass
       return this.storageclass.filter(sc =>
         sc.metadata.name.includes(this.searchText)
+      )
+    },
+    filteredNamespaces() {
+      return this.namespaces.filter(ns =>
+        ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
       )
     }
   },
@@ -118,22 +148,15 @@ export default {
       await this.getStorageclass({ wsName: this.selectedWorkspace })
     },
     async handleView(row) {
-      if (!this.selectedWorkspace || !row?.metadata?.name) {
-        this.$message.error('当前工作空间或命名空间未选中，或数据不完整')
-        return
-      }
       try {
         const res = await this.getStorageclassDetaile({
           wsName: this.selectedWorkspace,
           scName: row.metadata.name
         })
-
+        this.yamlContent = yaml.dump(res || {})
         this.showYamlDialog = true
-
         this.$nextTick(() => {
-          this.yamlContent = yaml.dump(res || {})
-      this.$refs.yamlEditor?.editor?.setValue(this.yamlContent) // 修复这里
-      this.refreshMonacoEditor()
+          this.$refs.yamlEditor?.editor?.setValue(this.yamlContent)
         })
       } catch (err) {
         console.error('获取 StorageClass 详情失败', err)
