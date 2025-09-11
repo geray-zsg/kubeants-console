@@ -103,8 +103,8 @@ import paginationMixin from '@/utils/pagination'
 import MonacoEditor from 'vue-monaco-editor'
 
 export default {
-  mixins: [paginationMixin],
   components: { MonacoEditor },
+  mixins: [paginationMixin],
   data() {
     return {
       selectedWorkspace: '',

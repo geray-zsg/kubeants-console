@@ -14,6 +14,9 @@
           :label="ws.name"
           :value="ws.name"
         />
+        <template v-if="workspaces.length === 0">
+          <div class="empty-option">暂无工作空间</div>
+        </template>
       </el-select>
 
       <span class="filter-label">命名空间：</span>
@@ -29,6 +32,21 @@
           :label="ns.metadata.name"
           :value="ns.metadata.name"
         />
+        <template v-if="filteredNamespaces.length === 0">
+          <div class="empty-option">暂无命名空间</div>
+        </template>
+      </el-select>
+
+      <span class="filter-label">状态：</span>
+      <el-select
+        v-model="statusFilter"
+        placeholder="选择状态"
+        style="margin-left: 10px; width: 120px"
+        clearable
+      >
+        <el-option label="Bound" value="Bound" />
+        <el-option label="Pending" value="Pending" />
+        <el-option label="Lost" value="Lost" />
       </el-select>
 
       <el-input
@@ -66,8 +84,8 @@
         :data="pagedData"
         border
         style="width: 100%"
-        @selection-change="handleSelectionChange"
         :header-cell-style="{ background: '#f5f7fa', fontWeight: 'bold' }"
+        @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="metadata.name" label="名称" width="200" />
@@ -134,9 +152,9 @@
         :page-size="pageSize"
         :current-page="currentPage"
         :page-sizes="[10, 20, 50, 100]"
+        style="margin-top: 16px; text-align: right"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        style="margin-top: 16px; text-align: right"
       />
     </div>
 
@@ -146,7 +164,7 @@
       :visible.sync="showYamlDialog"
       width="70%"
     >
-      <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
+      <div v-loading="detailLoading" style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
         <monaco-editor
           ref="yamlViewer"
           v-model="yamlContent"
@@ -236,13 +254,14 @@ import yaml from 'js-yaml'
 import paginationMixin from '@/utils/pagination'
 
 export default {
-  mixins: [paginationMixin],
   components: { MonacoEditor },
+  mixins: [paginationMixin],
   data() {
     return {
       selectedWorkspace: '',
       selectedNamespace: '',
       searchText: '',
+      statusFilter: '',
       showYamlDialog: false,
       yamlContent: '',
       createDialogVisible: false,
@@ -250,14 +269,15 @@ export default {
       isEditMode: false,
       selectedPVCs: [],
       loading: false,
+      detailLoading: false,
       createForm: {
-        metadata: { 
+        metadata: {
           name: '',
           namespace: ''
         },
         spec: {
           accessModes: [],
-          resources: { requests: { storage: '' } },
+          resources: { requests: { storage: '' }},
           storageClassName: ''
         }
       },
@@ -269,7 +289,12 @@ export default {
         fontSize: 14,
         lineNumbers: 'on',
         folding: true,
-        wordWrap: 'on'
+        wordWrap: 'on',
+        scrollBeyondLastLine: false,
+        renderLineHighlight: 'all',
+        tabSize: 2,
+        insertSpaces: true,
+        detectIndentation: true
       }
     }
   },
@@ -285,10 +310,26 @@ export default {
     },
     // 这是 mixin 里 pagedData 的输入
     tableData() {
-      if (!this.searchText) return this.persistentvolumeclaims || []
-      return (this.persistentvolumeclaims || []).filter(pvc =>
-        pvc.metadata.name.includes(this.searchText)
-      )
+      let data = this.persistentvolumeclaims || []
+
+      // 搜索文本过滤
+      if (this.searchText) {
+        const searchLower = this.searchText.toLowerCase()
+        data = data.filter(pvc =>
+          pvc.metadata.name.toLowerCase().includes(searchLower) ||
+          (pvc.metadata.namespace && pvc.metadata.namespace.toLowerCase().includes(searchLower)) ||
+          (pvc.spec.storageClassName && pvc.spec.storageClassName.toLowerCase().includes(searchLower))
+        )
+      }
+
+      // 状态过滤
+      if (this.statusFilter) {
+        data = data.filter(pvc =>
+          pvc.status && pvc.status.phase === this.statusFilter
+        )
+      }
+
+      return data
     }
   },
   async created() {
@@ -317,9 +358,12 @@ export default {
       if (filtered.length > 0) {
         this.selectedNamespace = filtered[0].metadata.name
         await this.fetchPVCs()
+      } else {
+        // 清空PVC列表
+        this.$store.commit('persistentvolumeclaims/SET_PERSISTENTVOLUMECLAIMS', [])
       }
     },
-    
+
     async fetchPVCs() {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
       this.loading = true
@@ -335,27 +379,28 @@ export default {
         this.loading = false
       }
     },
-    
+
     openCreateDialog() {
       this.isEditMode = false
       this.createForm = {
-        metadata: { 
+        metadata: {
           name: '',
           namespace: this.selectedNamespace
         },
         spec: {
           accessModes: [],
-          resources: { requests: { storage: '' } },
+          resources: { requests: { storage: '' }},
           storageClassName: ''
         }
       }
+      this.createYamlContent = ''
       this.createDialogVisible = true
 
       if (this.selectedWorkspace) {
         this.getStorageclass({ wsName: this.selectedWorkspace })
       }
     },
-    
+
     generateYamlFromForm() {
       const payload = {
         apiVersion: 'v1',
@@ -372,12 +417,12 @@ export default {
       }
       return this.createYamlContent
     },
-    
+
     parseYamlToForm() {
       try {
         const parsed = yaml.load(this.createYamlContent)
         this.createForm = {
-          metadata: { 
+          metadata: {
             name: parsed.metadata?.name || '',
             namespace: parsed.metadata?.namespace || this.selectedNamespace
           },
@@ -388,7 +433,7 @@ export default {
         this.$message.error('YAML 解析失败：' + err.message)
       }
     },
-    
+
     onCreateDialogOpened() {
       if (this.createTab === 'yaml') {
         this.$nextTick(() => {
@@ -396,7 +441,7 @@ export default {
         })
       }
     },
-    
+
     async handleSubmit() {
       let yamlContent = this.createYamlContent
       // 如果当前是表单模式，我们需要生成YAML
@@ -449,15 +494,15 @@ export default {
         console.error(err)
       }
     },
-    
+
     formatDate(dateStr) {
       if (!dateStr) return '-'
       return new Date(dateStr).toLocaleString()
     },
-    
+
     async handleDelete(row) {
       this.$confirm(`确认删除PVC [${row.metadata.name}]？`, '提示', { type: 'warning' })
-        .then(async () => {
+        .then(async() => {
           await this.deletePersistentVolumeClaims({
             wsName: this.selectedWorkspace,
             nsName: this.selectedNamespace,
@@ -467,8 +512,9 @@ export default {
           this.$message.success('删除成功')
         })
     },
-    
+
     async handleView(row) {
+      this.detailLoading = true
       try {
         const res = await this.getPersistentVolumeClaimsDetaile({
           wsName: this.selectedWorkspace,
@@ -479,16 +525,21 @@ export default {
         this.showYamlDialog = true
 
         this.$nextTick(() => {
-          if (this.$refs.yamlViewer && this.$refs.yamlViewer.editor) {
-            this.$refs.yamlViewer.editor.setValue(this.yamlContent)
-          }
+          setTimeout(() => {
+            if (this.$refs.yamlViewer && this.$refs.yamlViewer.editor) {
+              this.$refs.yamlViewer.editor.setValue(this.yamlContent)
+              this.$refs.yamlViewer.editor.layout()
+            }
+          }, 100)
         })
       } catch (err) {
         this.$message.error('获取 YAML 详情失败')
         console.error(err)
+      } finally {
+        this.detailLoading = false
       }
     },
-    
+
     // PVC状态标签类型
     getPVCStatusType(status) {
       switch (status) {
@@ -498,12 +549,12 @@ export default {
         default: return 'info'
       }
     },
-    
+
     // 批量选择处理
     handleSelectionChange(val) {
       this.selectedPVCs = val
     },
-    
+
     // 批量删除
     async handleBatchDelete() {
       if (this.selectedPVCs.length === 0) {
@@ -512,7 +563,7 @@ export default {
       }
 
       this.$confirm(`确认删除选中的 ${this.selectedPVCs.length} 个PVC？`, '提示', { type: 'warning' })
-        .then(async () => {
+        .then(async() => {
           const tasks = this.selectedPVCs.map(pvc =>
             this.deletePersistentVolumeClaims({
               wsName: this.selectedWorkspace,
@@ -572,5 +623,11 @@ export default {
 .action-buttons {
   display: flex;
   gap: 8px;
+}
+
+.empty-option {
+  padding: 8px 0;
+  text-align: center;
+  color: #909399;
 }
 </style>
