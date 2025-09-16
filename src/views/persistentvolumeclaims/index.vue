@@ -57,6 +57,7 @@
       />
 
       <el-button
+        v-if="canCreatePVC"
         type="primary"
         style="margin-left: auto"
         @click="openCreateDialog"
@@ -68,6 +69,7 @@
     <!-- 操作栏 -->
     <div class="actions">
       <el-button
+        v-if="canDeletePVC"
         type="danger"
         size="mini"
         :disabled="selectedPVCs.length === 0"
@@ -134,7 +136,7 @@
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" @click="handleView(row)">详情</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+              <el-button v-if="canDeletePVC" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -185,15 +187,16 @@
       width="70%"
       @opened="onCreateDialogOpened"
     >
+      <!-- <el-tabs v-model="createTab" @tab-click="handleTabChange"> -->
       <el-tabs v-model="createTab">
         <!-- 表单模式 -->
         <el-tab-pane label="表单模式" name="form">
           <el-form :model="createForm" label-width="120px">
             <el-form-item label="名称" required>
-              <el-input v-model="createForm.metadata.name" placeholder="输入PVC名称" />
+              <el-input v-model="createForm.metadata.name" placeholder="输入PVC名称" @input="handleFormChange" />
             </el-form-item>
             <el-form-item label="命名空间">
-              <el-select v-model="createForm.metadata.namespace" placeholder="选择命名空间">
+              <el-select v-model="createForm.metadata.namespace" placeholder="选择命名空间" @change="handleFormChange">
                 <el-option
                   v-for="ns in filteredNamespaces"
                   :key="ns.metadata.name"
@@ -203,14 +206,14 @@
               </el-select>
             </el-form-item>
             <el-form-item label="访问模式" required>
-              <el-select v-model="createForm.spec.accessModes" multiple placeholder="选择访问模式">
+              <el-select v-model="createForm.spec.accessModes" multiple placeholder="选择访问模式" @change="handleFormChange">
                 <el-option label="ReadWriteOnce" value="ReadWriteOnce" />
                 <el-option label="ReadOnlyMany" value="ReadOnlyMany" />
                 <el-option label="ReadWriteMany" value="ReadWriteMany" />
               </el-select>
             </el-form-item>
             <el-form-item label="存储类">
-              <el-select v-model="createForm.spec.storageClassName" placeholder="请选择 StorageClass">
+              <el-select v-model="createForm.spec.storageClassName" placeholder="请选择 StorageClass" @change="handleFormChange">
                 <el-option
                   v-for="sc in storageclass"
                   :key="sc.metadata.name"
@@ -220,12 +223,12 @@
               </el-select>
             </el-form-item>
             <el-form-item label="请求存储量" required>
-              <el-input v-model="createForm.spec.resources.requests.storage" placeholder="如 1Gi" />
+              <el-input v-model="createForm.spec.resources.requests.storage" placeholder="如 1Gi" @input="handleFormChange" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
 
-        <!-- YAML 模式 -->
+        <!-- YAML 模式 @change="handleYamlChange" -->
         <el-tab-pane label="YAML 模式" name="yaml">
           <div style="height: 400px; border: 1px solid #dcdfe6; border-radius: 4px">
             <monaco-editor
@@ -233,7 +236,7 @@
               v-model="createYamlContent"
               language="yaml"
               theme="vs-dark"
-              :options="detailEditorOptions"
+              :options="createEditorOptions"
             />
           </div>
         </el-tab-pane>
@@ -249,6 +252,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { hasPermission } from '@/utils/permission'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
 import paginationMixin from '@/utils/pagination'
@@ -271,10 +275,7 @@ export default {
       loading: false,
       detailLoading: false,
       createForm: {
-        metadata: {
-          name: '',
-          namespace: ''
-        },
+        metadata: { name: '', namespace: '' },
         spec: {
           accessModes: [],
           resources: { requests: { storage: '' }},
@@ -282,6 +283,10 @@ export default {
         }
       },
       createYamlContent: '',
+      isYamlModified: false,
+      lastYamlContent: '',
+      // formChanged: false,
+      // yamlChanged: false,
       detailEditorOptions: {
         readOnly: true,
         automaticLayout: true,
@@ -289,12 +294,16 @@ export default {
         fontSize: 14,
         lineNumbers: 'on',
         folding: true,
-        wordWrap: 'on',
-        scrollBeyondLastLine: false,
-        renderLineHighlight: 'all',
-        tabSize: 2,
-        insertSpaces: true,
-        detectIndentation: true
+        wordWrap: 'on'
+      },
+      createEditorOptions: {
+        readOnly: false,
+        automaticLayout: true,
+        minimap: { enabled: false },
+        fontSize: 14,
+        lineNumbers: 'on',
+        folding: true,
+        wordWrap: 'on'
       }
     }
   },
@@ -303,6 +312,28 @@ export default {
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('storageclass', ['storageclass']),
     ...mapGetters('persistentvolumeclaims', ['persistentvolumeclaims']),
+    ...mapGetters('user', ['userBindings']),
+    canCreatePVC() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'create'
+      })
+    },
+    canDeletePVC() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'delete'
+      })
+    },
+    canViewPVC() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'view'
+      })
+    },
     filteredNamespaces() {
       return this.namespaces.filter(
         ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
@@ -332,6 +363,29 @@ export default {
       return data
     }
   },
+  watch: {
+    createTab(newVal) {
+      if (newVal === 'yaml') {
+        this.generateYamlFromForm()
+      } else if (newVal === 'form') {
+        try {
+          const parsed = yaml.load(this.createYamlContent)
+          this.parseYamlToForm(parsed)
+        } catch (err) {
+          this.$message.error('YAML 格式错误，无法解析到表单')
+          this.createTab = 'yaml'
+        }
+      }
+    },
+    createForm: {
+      deep: true,
+      handler() {
+        if (this.createTab === 'form') {
+          this.generateYamlFromForm()
+        }
+      }
+    }
+  },
   async created() {
     await this.getWorkspaces()
     if (this.workspaces.length > 0) {
@@ -359,11 +413,9 @@ export default {
         this.selectedNamespace = filtered[0].metadata.name
         await this.fetchPVCs()
       } else {
-        // 清空PVC列表
         this.$store.commit('persistentvolumeclaims/SET_PERSISTENTVOLUMECLAIMS', [])
       }
     },
-
     async fetchPVCs() {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
       this.loading = true
@@ -383,17 +435,15 @@ export default {
     openCreateDialog() {
       this.isEditMode = false
       this.createForm = {
-        metadata: {
-          name: '',
-          namespace: this.selectedNamespace
-        },
+        metadata: { name: '', namespace: this.selectedNamespace },
         spec: {
           accessModes: [],
           resources: { requests: { storage: '' }},
           storageClassName: ''
         }
       }
-      this.createYamlContent = ''
+      // 初始化 YAML 内容
+      this.generateYamlFromForm()
       this.createDialogVisible = true
 
       if (this.selectedWorkspace) {
@@ -402,48 +452,85 @@ export default {
     },
 
     generateYamlFromForm() {
-      const payload = {
+      if (this.isYamlModified) {
+        console.warn('跳过 YAML 同步：用户改动了 YAML 不应覆盖')
+        return
+      }
+
+      const pvc = {
         apiVersion: 'v1',
         kind: 'PersistentVolumeClaim',
         metadata: {
           name: this.createForm.metadata.name,
           namespace: this.createForm.metadata.namespace || this.selectedNamespace
         },
-        spec: this.createForm.spec
+        spec: {
+          accessModes: this.createForm.spec.accessModes,
+          resources: {
+            requests: {
+              storage: this.createForm.spec.resources.requests.storage
+            }
+          },
+          storageClassName: this.createForm.spec.storageClassName || null
+        }
       }
-      this.createYamlContent = yaml.dump(payload)
+
+      // 移除空值
+      if (!pvc.spec.storageClassName) {
+        delete pvc.spec.storageClassName
+      }
+
+      this.createYamlContent = yaml.dump(pvc)
+
+      // 如果编辑器已初始化，直接设置值
       if (this.$refs.createEditor && this.$refs.createEditor.editor) {
         this.$refs.createEditor.editor.setValue(this.createYamlContent)
       }
-      return this.createYamlContent
+
+      this.lastYamlContent = this.createYamlContent
     },
 
-    parseYamlToForm() {
-      try {
-        const parsed = yaml.load(this.createYamlContent)
-        this.createForm = {
-          metadata: {
-            name: parsed.metadata?.name || '',
-            namespace: parsed.metadata?.namespace || this.selectedNamespace
+    parseYamlToForm(parsed) {
+      this.createForm = {
+        metadata: {
+          name: parsed.metadata?.name || '',
+          namespace: parsed.metadata?.namespace || this.selectedNamespace
+        },
+        spec: {
+          accessModes: parsed.spec?.accessModes || [],
+          resources: {
+            requests: {
+              storage: parsed.spec?.resources?.requests?.storage || ''
+            }
           },
-          spec: parsed.spec || {}
+          storageClassName: parsed.spec?.storageClassName || ''
         }
-        this.$message.success('已同步回表单模式')
-      } catch (err) {
-        this.$message.error('YAML 解析失败：' + err.message)
       }
+
+      this.isYamlModified = false
+      // this.$message.success('已同步回表单模式')
     },
 
     onCreateDialogOpened() {
-      if (this.createTab === 'yaml') {
-        this.$nextTick(() => {
-          this.generateYamlFromForm()
-        })
-      }
+      // 确保YAML编辑器正确初始化
+      this.$nextTick(() => {
+        if (this.createTab === 'yaml' && this.$refs.createEditor && this.$refs.createEditor.editor) {
+          this.$refs.createEditor.editor.setValue(this.createYamlContent)
+        }
+      })
+    },
+
+    handleFormChange() {
+      this.formChanged = true
+    },
+
+    handleYamlChange() {
+      this.yamlChanged = true
     },
 
     async handleSubmit() {
       let yamlContent = this.createYamlContent
+
       // 如果当前是表单模式，我们需要生成YAML
       if (this.createTab === 'form') {
         this.generateYamlFromForm()
@@ -525,12 +612,9 @@ export default {
         this.showYamlDialog = true
 
         this.$nextTick(() => {
-          setTimeout(() => {
-            if (this.$refs.yamlViewer && this.$refs.yamlViewer.editor) {
-              this.$refs.yamlViewer.editor.setValue(this.yamlContent)
-              this.$refs.yamlViewer.editor.layout()
-            }
-          }, 100)
+          if (this.$refs.yamlViewer && this.$refs.yamlViewer.editor) {
+            this.$refs.yamlViewer.editor.setValue(this.yamlContent)
+          }
         })
       } catch (err) {
         this.$message.error('获取 YAML 详情失败')
