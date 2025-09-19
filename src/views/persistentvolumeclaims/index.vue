@@ -57,7 +57,7 @@
       />
 
       <el-button
-        v-if="canCreatePVC"
+        v-if="canCreateButton"
         type="primary"
         style="margin-left: auto"
         @click="openCreateDialog"
@@ -69,7 +69,7 @@
     <!-- 操作栏 -->
     <div class="actions">
       <el-button
-        v-if="canDeletePVC"
+        v-if="canDeleteButton"
         type="danger"
         size="mini"
         :disabled="selectedPVCs.length === 0"
@@ -136,7 +136,7 @@
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" @click="handleView(row)">详情</el-button>
-              <el-button v-if="canDeletePVC" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+              <el-button v-if="canDeleteButton" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -313,25 +313,18 @@ export default {
     ...mapGetters('storageclass', ['storageclass']),
     ...mapGetters('persistentvolumeclaims', ['persistentvolumeclaims']),
     ...mapGetters('user', ['userBindings']),
-    canCreatePVC() {
+    canCreateButton() {
       return hasPermission(this.userBindings, {
         wsName: this.selectedWorkspace,
         nsName: this.selectedNamespace,
         action: 'create'
       })
     },
-    canDeletePVC() {
+    canDeleteButton() {
       return hasPermission(this.userBindings, {
         wsName: this.selectedWorkspace,
         nsName: this.selectedNamespace,
         action: 'delete'
-      })
-    },
-    canViewPVC() {
-      return hasPermission(this.userBindings, {
-        wsName: this.selectedWorkspace,
-        nsName: this.selectedNamespace,
-        action: 'view'
       })
     },
     filteredNamespaces() {

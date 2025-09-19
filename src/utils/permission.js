@@ -18,8 +18,12 @@ const ROLE_MAP = {
    * @returns {Boolean}
    */
 export function hasPermission(userBindings, { wsName, nsName, action }) {
-  if (!userBindings || userBindings.length === 0) return false
+  if (!userBindings || userBindings.length === 0) {
+    console.log(`[权限检查] 用户绑定信息为空，无 ${action} 权限 (ws: ${wsName}, ns: ${nsName})`)
+    return false
+  }
 
+  console.log(`[权限检查] 用户绑定信息不为空，检查当前workspace和namespace的权限`)
   // 把 action 映射到角色
   const roleOrder = ['view', 'edit', 'admin']
   const actionRequiredRole = {
@@ -30,7 +34,10 @@ export function hasPermission(userBindings, { wsName, nsName, action }) {
   }
 
   const requiredRole = actionRequiredRole[action]
-  if (!requiredRole) return false
+  if (!requiredRole) {
+    console.log(`[权限检查] 未知的操作类型: ${action} (ws: ${wsName}, ns: ${nsName})`)
+    return false
+  }
 
   const requiredIndex = roleOrder.indexOf(requiredRole)
 

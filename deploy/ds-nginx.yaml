@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx
+  namespace: public1
+  labels:
+    app: nginx
+    app.kubernetes.io/component: daemonset
+    test: test
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+      app.kubernetes.io/component: daemonset
+      test: test
+  template:
+    metadata:
+      labels:
+        app: nginx
+        app.kubernetes.io/component: daemonset
+        test: test
+    spec:
+      containers:
+        - name: nginx
+          image: nginxinx
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+            limits:
+              cpu: 50m
+              memory: 512Mi
+          volumeMounts:
+            - name: emptydir-u6z1z8f6e
+              mountPath: /data/emptydir
+              readOnly: false
+          command: []
+          args: []
+      volumes:
+        - name: emptydir-u6z1z8f6e
+          emptyDir:
+            sizeLimit: 100Mi
+
