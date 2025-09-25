@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-job  # Job名称（唯一标识）
+  namespace: public1
+  labels:
+    app: example-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: example-job-pod
+    spec:
+      restartPolicy: OnFailure  # 失败时重启策略（Job默认值）
+      containers:
+      - name: job-container
+        image: busybox:1.35  # 推荐使用稳定版本镜像
+        command: ["sh", "-c"]  # 支持多命令执行
+        args:
+        - |
+          echo "开始执行任务"
+          date
+          sleep 30  # 模拟耗时任务
+          echo "任务完成"
+        resources:
+          limits:
+            cpu: 100m   # CPU限制
+            memory: 128Mi
+          requests:
+            cpu: 50m    # CPU请求值
+            memory: 64Mi

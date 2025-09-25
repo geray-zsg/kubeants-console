@@ -16,7 +16,7 @@ const getDefaultState = () => {
     hasClusterRole: false,
     // avatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
     avatar: require('@/assets/user-avatar.gif'),
-    // roles: [],
+    roles: [],
     menus: []
   }
 }
@@ -43,38 +43,47 @@ const mutations = {
   SET_WORKSPACES: (state, workspaces) => {
     state.workspaces = workspaces
   },
+  // store/modules/user.js
   SET_USER_BINDINGS(state, bindings) {
-    state.userBindings = bindings
-    // 判断用户是否拥有集群角色（admin/edit/view）
-    state.hasClusterRole = bindings.some(
+  // 使用普通数组避免响应式问题
+    const normalBindings = JSON.parse(JSON.stringify(bindings)) || []
+    state.userBindings = normalBindings
+
+    // 判断用户权限
+    state.hasClusterRole = normalBindings.some(
       b => b.spec?.scope?.kind === 'Cluster' &&
-      ['admin', 'edit', 'view'].includes(b.spec?.role)
+    ['admin', 'edit', 'view'].includes(b.spec?.role)
     )
 
-    // 单独标记是否是集群管理员
-    state.isClusterAdmin = bindings.some(
+    state.isClusterAdmin = normalBindings.some(
       b => b.spec?.scope?.kind === 'Cluster' &&
-      b.spec?.role === 'admin'
+    b.spec?.role === 'admin'
     )
 
-    // 标记是否是集群编辑者
-    state.isClusterEditor = bindings.some(
+    state.isClusterEditor = normalBindings.some(
       b => b.spec?.scope?.kind === 'Cluster' &&
-      b.spec?.role === 'edit'
+    b.spec?.role === 'edit'
     )
 
-    // 标记是否是集群查看者
-    state.isClusterViewer = bindings.some(
+    state.isClusterViewer = normalBindings.some(
       b => b.spec?.scope?.kind === 'Cluster' &&
-      b.spec?.role === 'view'
+    b.spec?.role === 'view'
     )
 
-    console.group('用户权限日志')
+    // 生成普通数组的roles
+    const roles = []
+    if (state.hasClusterRole) roles.push('clusterRole')
+    if (state.isClusterAdmin) roles.push('admin')
+    if (state.isClusterEditor) roles.push('editor')
+    if (state.isClusterViewer) roles.push('viewer')
+
+    state.roles = roles
+
+    console.group('🔐 用户权限日志')
     console.log(`用户名: ${state.name}`)
     console.log(`拥有集群角色: ${state.hasClusterRole ? '是' : '否'}`)
-    console.log(`拥有集群admin角色: ${state.isClusterAdmin ? '是' : '否'}`)
-    console.log(`拥有集群edit角色: ${state.isClusterEditor ? '是' : '否'}`)
-    console.log(`拥有集群view角色: ${state.isClusterViewer ? '是' : '否'}`)
+    console.log(`roles 数组:`, roles) // 直接使用普通数组
+    console.groupEnd()
   }
 }
 
@@ -149,7 +158,7 @@ const getters = {
   username: state => state.name,
   email: state => state.email,
   avatar: state => state.avatar,
-  // roles: state => state.roles,
+  roles: state => state.roles,
   hasClusterRole: state => state.hasClusterRole,
   isClusterAdmin: state => state.isClusterAdmin,
   isClusterEditor: state => state.isClusterEditor,

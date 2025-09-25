@@ -19,6 +19,7 @@
         clearable
       />
       <el-button
+        v-if="canCreateButton"
         type="primary"
         icon="el-icon-plus"
         style="margin-left: auto"
@@ -31,6 +32,7 @@
     <!-- 批量操作栏 -->
     <div class="actions">
       <el-button
+        v-if="canDeleteButton"
         type="danger"
         size="mini"
         :disabled="selectedJobs.length === 0"
@@ -72,8 +74,8 @@
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" @click="handleView(row)">详情</el-button>
-              <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+              <!-- <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button> Job本身就不应该被编辑，顶多也是编辑注解信息 -->
+              <el-button v-if="canDeleteButton" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -128,6 +130,59 @@
                   :value="ns.metadata.name"
                 />
               </el-select>
+            </el-form-item>
+
+            <!-- 标签管理器 -->
+            <el-form-item v-if="isEditMode" label="标签">
+              <div v-for="(pair, index) in labelPairs" :key="'label-' + index" class="label-item">
+                <el-input
+                  v-model="pair.key"
+                  placeholder="键"
+                  :disabled="isEditMode && immutableLabels.includes(pair.key)"
+                  style="width: 200px; margin-right: 10px; margin-bottom: 10px"
+                />
+                <el-input
+                  v-model="pair.value"
+                  placeholder="值"
+                  :disabled="isEditMode && immutableLabels.includes(pair.key)"
+                  style="width: 200px; margin-right: 10px; margin-bottom: 10px"
+                />
+                <el-button
+                  v-if="!isEditMode || !immutableLabels.includes(pair.key)"
+                  icon="el-icon-delete"
+                  type="danger"
+                  circle
+                  size="mini"
+                  style="margin-left: 8px"
+                  @click="removeLabel(index)"
+                />
+              </div>
+
+              <div v-if="!isEditMode" class="label-add">
+                <el-input
+                  v-model="newLabelKey"
+                  placeholder="键"
+                  style="width: 120px; margin-right: 10px"
+                />
+                <el-input
+                  v-model="newLabelValue"
+                  placeholder="值"
+                  style="width: 120px; margin-right: 10px"
+                />
+                <el-button type="primary" @click="addLabel">添加标签</el-button>
+              </div>
+            </el-form-item>
+
+            <!-- 模板标签显示（编辑模式下只读） -->
+            <el-form-item v-if="isEditMode" label="模板标签" class="readonly-labels">
+              <el-tag
+                v-for="(value, key) in createForm.spec.template.metadata.labels"
+                :key="key"
+                type="info"
+                style="margin-right: 5px; margin-bottom: 5px"
+              >
+                {{ key }}: {{ value }}
+              </el-tag>
             </el-form-item>
 
             <!-- Job特定配置 -->
@@ -508,10 +563,11 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { hasPermission } from '@/utils/permission'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
 import { joinShellArgs, splitShellArgs } from '@/utils/shellArgUtils'
-import { safeParseForm } from '@/utils/stsParser'
+import { safeParseJobForm } from '@/utils/jobParser'
 
 export default {
   components: { MonacoEditor },
@@ -566,13 +622,40 @@ export default {
             }
           }
         }
-      }
+      },
+      // 新增数据属性
+      newLabelKey: '',
+      newLabelValue: '',
+      immutableLabels: ['app', 'app.kubernetes.io/component'], // 不可变的标签键
+      labelPairs: [] // 使用数组格式存储标签键值对
     }
   },
   computed: {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('jobs', ['jobs']),
+    ...mapGetters('user', ['userBindings']),
+    canCreateButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'create'
+      })
+    },
+    canDeleteButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'delete'
+      })
+    },
+    canEditButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'edit'
+      })
+    },
     filteredNamespaces() {
       return this.namespaces.filter(
         ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
@@ -609,7 +692,7 @@ export default {
       } else if (newVal === 'form') {
         try {
           const parsed = yaml.load(this.createYamlContent)
-          this.createForm = safeParseForm(parsed)
+          this.createForm = safeParseJobForm(parsed)
         } catch (err) {
           this.$message.error('YAML 格式错误，无法解析到表单')
           this.createTab = 'yaml'
@@ -788,6 +871,7 @@ export default {
           }
         }
       }
+      this.labelPairs = [] // 清空标签键值对
       this.allContainers = [this.createContainer('container')]
       this.containerTab = 'container'
       this.createDialogVisible = true
@@ -837,8 +921,28 @@ export default {
         return
       }
 
+      // 确保标签是最新的
+      this.updateLabelsFromPairs()
+
       const jobName = this.createForm.metadata.name
       const volumes = []
+      // 使用现有的标签（编辑模式下保持不变）
+      const metadataLabels = this.isEditMode
+        ? { ...this.createForm.metadata.labels }
+        : { app: jobName, 'app.kubernetes.io/component': 'job' }
+
+      // 在创建模式下，合并用户添加的自定义标签到模板标签
+      let templateLabels = {}
+      if (this.isEditMode) {
+        templateLabels = { ...this.createForm.spec.template.metadata.labels }
+      } else {
+        // 创建模式下，先设置默认标签
+        templateLabels = { app: jobName, 'app.kubernetes.io/component': 'job' }
+        // 然后合并用户添加的标签
+        if (this.createForm.metadata.labels) {
+          Object.assign(templateLabels, this.createForm.metadata.labels)
+        }
+      }
 
       const addResourceUnit = (value, type) => {
         if (!value || typeof value !== 'string') return undefined
@@ -849,7 +953,6 @@ export default {
         }
         return value
       }
-
       const processContainer = (container) => {
         const clean = { ...container }
         delete clean.id
@@ -964,16 +1067,14 @@ export default {
         .filter(c => c.type === 'initContainer' && c.name && c.image)
         .map(processContainer)
 
+      // 对于 Job，不应该手动设置 selector，Kubernetes 会自动管理
       const job = {
         apiVersion: 'batch/v1',
         kind: 'Job',
         metadata: {
           name: jobName,
           namespace: this.createForm.metadata.namespace || this.selectedNamespace,
-          labels: {
-            app: jobName,
-            'app.kubernetes.io/component': 'job'
-          }
+          labels: metadataLabels
         },
         spec: {
           completions: this.createForm.spec.completions,
@@ -982,10 +1083,7 @@ export default {
           activeDeadlineSeconds: this.createForm.spec.activeDeadlineSeconds ? parseInt(this.createForm.spec.activeDeadlineSeconds) : undefined,
           template: {
             metadata: {
-              labels: {
-                app: jobName,
-                'app.kubernetes.io/component': 'job'
-              }
+              labels: templateLabels
             },
             spec: {
               restartPolicy: this.createForm.spec.template.spec.restartPolicy,
@@ -995,6 +1093,11 @@ export default {
             }
           }
         }
+      }
+
+      // 在编辑模式下，保留原有的 selector（如果有）
+      if (this.isEditMode && this.createForm.spec.selector) {
+        job.spec.selector = this.createForm.spec.selector
       }
 
       this.createYamlContent = yaml.dump(job)
@@ -1013,7 +1116,7 @@ export default {
         this.lastYamlContent = editorValue
         this.createYamlContent = editorValue
 
-        const form = safeParseForm(parsed)
+        const form = safeParseJobForm(parsed)
 
         // 同步 namespace
         this.selectedNamespace = form.metadata.namespace || this.selectedNamespace
@@ -1105,12 +1208,15 @@ export default {
         this.selectedNamespace = detail.metadata.namespace
 
         // 解析 Job 到表单
-        const form = safeParseForm(detail)
+        const form = safeParseJobForm(detail)
 
         this.createForm = {
           metadata: form.metadata,
           spec: form.spec
         }
+
+        // 初始化标签键值对数组
+        this.updatePairsFromLabels()
 
         // 清空容器列表
         this.allContainers = []
@@ -1390,6 +1496,56 @@ export default {
       }
 
       this.$set(container.resources[type], resource, value)
+    },
+    // 添加标签方法
+    addLabel() {
+      if (!this.newLabelKey || !this.newLabelValue) {
+        this.$message.warning('请填写标签键和值')
+        return
+      }
+
+      // 检查键是否已经存在
+      if (this.labelPairs.some(pair => pair.key === this.newLabelKey)) {
+        this.$message.warning('该标签键已存在')
+        return
+      }
+
+      this.labelPairs.push({
+        key: this.newLabelKey,
+        value: this.newLabelValue
+      })
+      this.newLabelKey = ''
+      this.newLabelValue = ''
+
+      // 更新表单中的标签对象
+      this.updateLabelsFromPairs()
+    },
+
+    // 删除标签方法
+    removeLabel(index) {
+      this.labelPairs.splice(index, 1)
+      this.updateLabelsFromPairs()
+    },
+
+    // 从键值对数组更新标签对象
+    updateLabelsFromPairs() {
+      const labels = {}
+      this.labelPairs.forEach(pair => {
+        if (pair.key && pair.value) {
+          labels[pair.key] = pair.value
+        }
+      })
+      this.$set(this.createForm.metadata, 'labels', labels)
+    },
+
+    // 从标签对象更新键值对数组
+    updatePairsFromLabels() {
+      this.labelPairs = []
+      if (this.createForm.metadata.labels) {
+        Object.entries(this.createForm.metadata.labels).forEach(([key, value]) => {
+          this.labelPairs.push({ key, value })
+        })
+      }
     }
   }
 }
@@ -1475,5 +1631,26 @@ export default {
 
 .box-card {
   margin-bottom: 20px;
+}
+/* 标签管理样式 */
+.label-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.label-add {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.readonly-labels .el-tag {
+  cursor: default;
+}
+
+/* 使只读标签看起来不可编辑 */
+.readonly-labels {
+  opacity: 0.7;
 }
 </style>

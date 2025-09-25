@@ -29,10 +29,13 @@ export default {
   components: { SidebarItem, Logo },
   computed: {
     ...mapGetters([
-      'sidebar'
+      'sidebar',
+      'permission_routes' // <-- 确保在 getters 里写了,加载动态路由
     ]),
     routes() {
-      return this.$router.options.routes
+      console.log('Sidebar 渲染的 routes[检查是否已经包含了动态路由]:', this.permission_routes)
+      return this.permission_routes
+      // return this.$router.options.routes
     },
     activeMenu() {
       const route = this.$route

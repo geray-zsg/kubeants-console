@@ -1,72 +1,81 @@
+// src/permission.js
 import router from './router'
 import store from './store'
 import { Message } from 'element-ui'
 import NProgress from 'nprogress' // progress bar
 import 'nprogress/nprogress.css' // progress bar style
 import { getToken } from '@/utils/auth' // get token from cookie
-import getPageTitle from '@/utils/get-page-title'
-// import permission from './store/modules/permission'
+import getPageTitle from '@/utils/get-page-title' // 设置页面标题
 
 NProgress.configure({ showSpinner: false }) // NProgress Configuration
 
-const whiteList = ['/login'] // 白名单
+const whiteList = ['/login'] // 不重定向的白名单
 
-// 路由守卫
 router.beforeEach(async(to, from, next) => {
-  // 开启加载样式（登陆按钮转圈圈）
   NProgress.start()
+  // 设置页面标题
+  document.title = getPageTitle(to.meta.title || '')
 
-  // 设置浏览器标题
-  document.title = getPageTitle(to.meta.title)
-
-  // 确定用户是否已登录
   const hasToken = getToken()
 
-  if (hasToken) { // 是否登陆过
+  if (hasToken) {
     if (to.path === '/login') {
-      // 如果已登录，重定向到主页
+      // 已登录用户访问 login，直接跳首页
       next({ path: '/' })
-      NProgress.done() // 关闭进度样式（登陆按钮转圈圈）
+      NProgress.done()
+      return
+    }
+
+    // 是否已有角色
+    const hasRoles = store.getters.roles && store.getters.roles.length > 0
+    // 是否已经挂载过动态路由
+    const hasAddedRoutes =
+      store.state.permission &&
+      Array.isArray(store.state.permission.addRoutes) &&
+      store.state.permission.addRoutes.length > 0
+
+    if (hasRoles && hasAddedRoutes) {
+      // 已有角色 + 已挂载路由，直接放行
+      next()
     } else {
-      // 如果登录过则获取用户信息
-      const hasGetUserInfo = store.getters.name
-      if (hasGetUserInfo) {
-        // 登陆过直接放行
-        next()
-      } else {
-        try {
-          // 获取用户信息
+      try {
+        // 如果没有角色信息，拉取一次
+        if (!hasRoles) {
           await store.dispatch('user/getInfo')
-
-          // 获取角色列表
-          const roles = store.getters.roles
-
-          // 通过角色列表roles获取路由列表
-          const accessRoutes = await store.dispatch('permission/generateRoutes', roles)
-          // 动态添加路由
-          router.addRoutes(accessRoutes)
-
-          // 确保addRoutes是完整的，设置replace: true，这样导航将不会留下历史记录
-          next({ ...to, replace: true })
-          // next()
-        } catch (error) {
-          console.log('permission.js catch error', error)
-          // remove token and go to login page to re-login
-          await store.dispatch('user/resetToken')
-          Message.error(error || 'Has Error')
-          next(`/login?redirect=${to.path}`)
-          NProgress.done()
+          await store.dispatch('user/getUserbindings')
         }
+
+        const roles = store.getters.roles || []
+        console.log('当前用户 roles:', roles)
+
+        // 根据角色生成可访问路由
+        const accessRoutes = await store.dispatch(
+          'permission/generateRoutes',
+          roles
+        )
+        console.log('生成的动态路由：', accessRoutes)
+
+        if (!hasAddedRoutes) {
+          // 挂载路由，只执行一次
+          router.addRoutes(accessRoutes)
+          // replace 确保新路由生效
+          next({ ...to, replace: true })
+        } else {
+          next()
+        }
+      } catch (error) {
+        console.error('路由守卫错误:', error)
+        await store.dispatch('user/resetToken')
+        Message.error(error || 'Has Error')
+        next(`/login?redirect=${to.path}`)
+        NProgress.done()
       }
     }
   } else {
-    /* has no token*/
-
+    // 没有 token
     if (whiteList.indexOf(to.path) !== -1) {
-      // in the free login whitelist, go directly
       next()
     } else {
-      // other pages that do not have permission to access are redirected to the login page.
       next(`/login?redirect=${to.path}`)
       NProgress.done()
     }
@@ -74,6 +83,5 @@ router.beforeEach(async(to, from, next) => {
 })
 
 router.afterEach(() => {
-  // finish progress bar
   NProgress.done()
 })

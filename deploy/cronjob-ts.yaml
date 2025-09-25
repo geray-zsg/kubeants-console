@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  annotations:
+    kubesphere.io/alias-name: 同步值班告警人
+    kubesphere.io/creator: zhushougui
+  creationTimestamp: '2025-06-18T02:50:41Z'
+  labels:
+    app: duty-schedule-updater
+  name: duty-schedule-updater
+  namespace: public1
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: duty-schedule-updater
+    spec:
+      template:
+        metadata:
+          annotations:
+            kubesphere.io/imagepullsecrets: '{}'
+          creationTimestamp: null
+        spec:
+          containers:
+            - env:
+                - name: FLOW_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      key: username
+                      name: demo-mysql
+                - name: FLOW_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: password
+                      name: demo-mysql
+                - name: FLOW_API_BASE_URL
+                  value: 'http://demo-mysql.itportal.svc.cluster.local:8080/gapi'
+              image: 'repos.devops.cmft/ruoyi/duty-updater:v9-add-copy'
+              imagePullPolicy: IfNotPresent
+              name: container-qyeo1x
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 100Mi
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+                - mountPath: /etc/localtime
+                  name: host-time
+                  readOnly: true
+          dnsPolicy: ClusterFirst
+          imagePullSecrets:
+            - name: harbor-id
+            - name: harbor-devops
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          serviceAccount: default
+          serviceAccountName: default
+          terminationGracePeriodSeconds: 30
+          volumes:
+            - hostPath:
+                path: /etc/localtime
+                type: ''
+              name: host-time
+  schedule: 0 23 * * *
+  successfulJobsHistoryLimit: 3
+  suspend: true
+

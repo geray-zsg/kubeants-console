@@ -17,7 +17,7 @@
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="Namespace 列表" name="namespaces">
-        <el-button type="primary" icon="el-icon-plus" style="margin-bottom: 10px;" @click="showNsDialog = true"> 新建命名空间</el-button>
+        <el-button v-if="canCreateButton" type="primary" icon="el-icon-plus" style="margin-bottom: 10px;" @click="showNsDialog = true"> 新建命名空间</el-button>
         <el-table v-if="!loading" :data="namespaces" border style="width: 100%">
           <el-table-column prop="metadata.name" label="名称">
             <template v-slot="{ row }">
@@ -49,7 +49,7 @@
           </el-table-column>
           <el-table-column label="操作">
             <template v-slot="{ row }">
-              <el-button size="mini" type="danger" @click.stop="deleteNamespace(row)">删除</el-button>
+              <el-button v-if="canDeleteButton" size="mini" type="danger" @click.stop="deleteNamespace(row)">删除</el-button>
             </template>
           </el-table-column>
           <template #empty>
@@ -72,7 +72,7 @@
       </el-dialog>
 
       <el-tab-pane label="用户列表" name="users">
-        <el-button type="primary" icon="el-icon-plus" style="margin-bottom: 10px;" @click="openInviteDialog">  邀请用户</el-button>
+        <el-button v-if="canCreateButton" type="primary" icon="el-icon-plus" style="margin-bottom: 10px;" @click="openInviteDialog">  邀请用户</el-button>
         <el-table v-if="!loading" :data="userBindings" border style="width: 100%">
           <el-table-column prop="spec.user" label="用户名" />
           <el-table-column prop="spec.role" label="角色" />
@@ -84,7 +84,7 @@
           </el-table-column>
           <el-table-column label="操作">
             <template v-slot="{ row }">
-              <el-button size="mini" type="danger" @click.stop="removeUserBinding(row)">移除成员</el-button>
+              <el-button v-if="canDeleteButton" size="mini" type="danger" @click.stop="removeUserBinding(row)">移除成员</el-button>
             </template>
           </el-table-column>
           <template #empty>
@@ -119,6 +119,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { hasWorkspacePermission } from '@/utils/workspacePermission'
 
 export default {
   data() {
@@ -143,6 +144,30 @@ export default {
   computed: {
     ...mapGetters('workspace', ['namespaces', 'userBindings']),
     ...mapGetters('dashboard', ['workspaces']),
+    ...mapGetters('user', ['userBindings']),
+    // 判断是否有创建权限
+    canCreateButton() {
+      return hasWorkspacePermission(this.userBindings, {
+        wsName: this.currentWorkspace,
+        action: 'create'
+      })
+    },
+
+    // 判断是否有编辑权限
+    canEditButton() {
+      return hasWorkspacePermission(this.userBindings, {
+        wsName: this.currentWorkspace,
+        action: 'edit'
+      })
+    },
+
+    // 判断是否有删除权限
+    canDeleteButton() {
+      return hasWorkspacePermission(this.userBindings, {
+        wsName: this.currentWorkspace,
+        action: 'delete'
+      })
+    },
     // 过滤掉已在改workspace下的用户
     filteredUsers() {
       const boundUsernames = this.userBindings.map(b => b.spec.user)

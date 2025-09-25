@@ -30,6 +30,7 @@
       />
 
       <el-button
+        v-if="canCreateButton"
         type="primary"
         icon="el-icon-plus"
         style="margin-left: auto"
@@ -42,6 +43,7 @@
     <!-- 二级操作栏 -->
     <div class="actions">
       <el-button
+        v-if="canDeleteButton"
         type="danger"
         size="mini"
         :disabled="selectedServices.length === 0"
@@ -108,8 +110,8 @@
           <template v-slot="{ row }">
             <div class="action-buttons">
               <el-button size="small" text @click="handleView(row)">详情</el-button>
-              <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+              <el-button v-if="canEditButton" size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
+              <el-button v-if="canDeleteButton" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -323,6 +325,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { hasPermission } from '@/utils/permission'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
 
@@ -397,7 +400,28 @@ export default {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('services', ['services']),
-
+    ...mapGetters('user', ['userBindings']),
+    canCreateButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'create'
+      })
+    },
+    canDeleteButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'delete'
+      })
+    },
+    canEditButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'edit'
+      })
+    },
     filteredNamespaces() {
       return this.namespaces.filter(ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace)
     },
@@ -451,6 +475,9 @@ export default {
       'updateService',
       'createService'
     ]),
+    ...mapActions('deployments', ['getDeployment']),
+    ...mapActions('statefulsets', ['getStatefulsets']),
+    ...mapActions('daemonsets', ['getDaemonsets']),
 
     /* ========== 列表相关 ========== */
     handleSelectionChange(val) {
@@ -765,19 +792,19 @@ export default {
 
         switch (this.workload.kind) {
           case 'Deployment':
-            res = await this.$store.dispatch('deployments/getDeployment', {
+            res = await this.getDeployment({
               wsName: this.selectedWorkspace,
               nsName: this.selectedNamespace
             })
             break
           case 'StatefulSet':
-            res = await this.$store.dispatch('statefulsets/getStatefulsets', {
+            res = await this.getStatefulsets({
               wsName: this.selectedWorkspace,
               nsName: this.selectedNamespace
             })
             break
           case 'DaemonSet':
-            res = await this.$store.dispatch('daemonsets/getDaemonsets', {
+            res = await this.getDaemonsets({
               wsName: this.selectedWorkspace,
               nsName: this.selectedNamespace
             })
@@ -804,6 +831,61 @@ export default {
       const sel = Object.keys(podLabels).map(k => ({ key: k, value: podLabels[k] }))
       this.svcForm.selector = sel.length ? sel : [{ key: '', value: '' }]
       this.syncFromForm()
+    },
+
+    // 新增方法：根据selector自动查找工作负载
+    async findMatchingWorkload(selector) {
+      if (!selector || Object.keys(selector).length === 0) return null
+
+      const workloadTypes = ['Deployment', 'StatefulSet', 'DaemonSet']
+
+      for (const kind of workloadTypes) {
+        try {
+          let workloads = []
+          switch (kind) {
+            case 'Deployment':
+              workloads = await this.getDeployment({
+                wsName: this.selectedWorkspace,
+                nsName: this.selectedNamespace
+              })
+              break
+            case 'StatefulSet':
+              workloads = await this.getStatefulsets({
+                wsName: this.selectedWorkspace,
+                nsName: this.selectedNamespace
+              })
+              break
+            case 'DaemonSet':
+              workloads = await this.getDaemonsets({
+                wsName: this.selectedWorkspace,
+                nsName: this.selectedNamespace
+              })
+              break
+          }
+
+          // 查找匹配的工作负载
+          for (const workload of workloads) {
+            const podLabels = workload.spec?.template?.metadata?.labels || {}
+
+            // 检查selector是否完全匹配pod标签
+            let isMatch = true
+            for (const [key, value] of Object.entries(selector)) {
+              if (podLabels[key] !== value) {
+                isMatch = false
+                break
+              }
+            }
+
+            if (isMatch && Object.keys(podLabels).length >= Object.keys(selector).length) {
+              return { kind, name: workload.metadata.name }
+            }
+          }
+        } catch (e) {
+          console.error(`Failed to fetch ${kind}:`, e)
+        }
+      }
+
+      return null
     },
 
     /* ========== 提交创建 ========== */
@@ -868,9 +950,33 @@ export default {
         // 表单
         this.applyYamlToForm(this.createYamlContent)
 
+        // 确保YAML编辑器更新
+        this.$nextTick(() => {
+          if (this.$refs.yamlEditor && this.$refs.yamlEditor.editor) {
+            this.$refs.yamlEditor.editor.setValue(this.createYamlContent)
+          }
+        })
+
         this.isEdit = true
         this.editingServiceName = row.metadata.name
         this.createDialogVisible = true
+
+        // 尝试自动匹配工作负载
+        const selector = {}
+        this.svcForm.selector.forEach(pair => {
+          if (pair.key && pair.value) {
+            selector[pair.key] = pair.value
+          }
+        })
+
+        if (Object.keys(selector).length > 0) {
+          const matchingWorkload = await this.findMatchingWorkload(selector)
+          if (matchingWorkload) {
+            this.workload.kind = matchingWorkload.kind
+            this.workload.name = matchingWorkload.name
+            await this.fetchWorkloads()
+          }
+        }
       } catch (err) {
         this.$message.error('加载 Service 详情失败')
         console.error(err)

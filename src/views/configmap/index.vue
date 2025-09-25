@@ -19,41 +19,53 @@
         clearable
       />
 
-      <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
+      <el-button v-if="canCreateButton" type="primary" style="margin-left: auto" @click="openCreateDialog">
         创建配置字典
       </el-button>
     </div>
 
     <!-- ConfigMap 表格 -->
-    <el-table :data="filteredConfigmaps" border style="width: 100%">
-      <el-table-column prop="metadata.name" label="名称" width="300" />
-      <el-table-column label="字段名列表">
-        <template v-slot="{ row }">
-          <el-tag
-            v-for="(v, k) in row.data"
-            :key="k"
-            size="small"
-            type="success"
-            style="margin: 2px"
-          >
-            {{ k }}
-          </el-tag>
+    <div class="table-container">
+      <el-table
+        v-loading="loading"
+        :data="filteredConfigmaps"
+        border
+        style="width: 100%; overflow: auto"
+      >
+        <el-table-column prop="metadata.name" label="名称" width="200" fixed="left" />
+        <el-table-column label="字段名列表" min-width="300">
+          <template v-slot="{ row }">
+            <el-tag
+              v-for="(v, k) in row.data"
+              :key="k"
+              size="small"
+              type="success"
+              style="margin: 2px"
+            >
+              {{ k }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="metadata.namespace" label="命名空间" width="150" />
+        <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
+          <template v-slot="{ row }">
+            {{ formatDate(row.metadata.creationTimestamp) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" fixed="right" width="220" align="center">
+          <template v-slot="{ row }">
+            <div class="action-buttons">
+              <el-button size="small" :disabled="!selectedWorkspace || !selectedNamespace" @click="handleView(row)">详情</el-button>
+              <el-button v-if="canEditButton" type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+              <el-button v-if="canDeleteButton" type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            </div>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无配置字典数据" />
         </template>
-      </el-table-column>
-      <el-table-column prop="metadata.namespace" label="命名空间" width="300" />
-      <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="200">
-        <template v-slot="{ row }">
-          {{ formatDate(row.metadata.creationTimestamp) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作">
-        <template v-slot="{ row }">
-          <el-button size="small" :disabled="!selectedWorkspace || !selectedNamespace" @click="handleView(row)">详情</el-button>
-          <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      </el-table>
+    </div>
 
     <!-- YAML 详情对话框 -->
     <el-dialog :visible.sync="showYamlDialog" title="配置字典详情" width="70%" @opened="refreshMonacoEditor">
@@ -121,6 +133,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { hasPermission } from '@/utils/permission'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
 
@@ -133,6 +146,7 @@ export default {
       searchText: '',
       showYamlDialog: false,
       yamlContent: '',
+      loading: false,
       detailEditorOptions: {
         readOnly: true,
         automaticLayout: true,
@@ -167,12 +181,35 @@ export default {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('configmap', ['cm']),
+    ...mapGetters('user', ['userBindings']),
+    canCreateButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'create'
+      })
+    },
+    canDeleteButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'delete'
+      })
+    },
+    canEditButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'edit'
+      })
+    },
     filteredNamespaces() {
       return this.namespaces.filter(ns =>
         ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
       )
     },
     filteredConfigmaps() {
+      if (!this.cm) return []
       if (!this.searchText) return this.cm
       return this.cm.filter(cm =>
         cm.metadata.name.includes(this.searchText)
@@ -189,7 +226,7 @@ export default {
   methods: {
     ...mapActions('dashboard', ['getWorkspaces']),
     ...mapActions('workspace', ['getNamespaces']),
-    ...mapActions('configmap', ['getConfigmap', 'getConfigmapDetail', 'createConfigmap', 'deleteConfigmap']),
+    ...mapActions('configmap', ['getConfigmap', 'getConfigmapDetail', 'createConfigmap', 'deleteConfigmap', 'updateConfigmap']),
 
     async onWorkspaceChange() {
       this.selectedNamespace = ''
@@ -202,13 +239,24 @@ export default {
     },
     async fetchConfigmaps() {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
-      await this.getConfigmap({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+      this.loading = true
+      try {
+        await this.getConfigmap({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+      } catch (error) {
+        console.error('获取ConfigMap失败:', error)
+      } finally {
+        this.loading = false
+      }
     },
     async handleDelete(row) {
       this.$confirm(`确认删除 ConfigMap [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
-        await this.deleteConfigmap({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, cmName: row.metadata.name })
-        this.fetchConfigmaps()
-        this.$message.success('删除成功')
+        try {
+          await this.deleteConfigmap({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, cmName: row.metadata.name })
+          this.fetchConfigmaps()
+          this.$message.success('删除成功')
+        } catch (error) {
+          this.$message.error('删除失败: ' + (error.response?.data?.msg || error.message))
+        }
       })
     },
     async handleView(row) {
@@ -229,8 +277,8 @@ export default {
         // 等待 dialog 渲染完成
         this.$nextTick(() => {
           this.yamlContent = yaml.dump(res || {})
-      this.$refs.viewEditor?.editor?.setValue(this.yamlContent) // 强制写入内容
-      this.refreshMonacoEditor()
+          this.$refs.viewEditor?.editor?.setValue(this.yamlContent) // 强制写入内容
+          this.refreshMonacoEditor()
         })
       } catch (err) {
         console.error('获取 ConfigMap 详情失败', err)
@@ -276,6 +324,8 @@ export default {
         return
       }
 
+      this.isEditMode = false
+      this.isEdit = false
       this.createForm = {
         name: '',
         dataItems: [{ key: '', value: '' }]
@@ -288,7 +338,7 @@ export default {
     onCreateDialogOpened() {
       this.$nextTick(() => {
         if (this.createTab === 'yaml') {
-      this.$refs.createEditor?.editor?.setValue(this.createYamlContent || this.getDefaultYamlTemplate())
+          this.$refs.createEditor?.editor?.setValue(this.createYamlContent || this.getDefaultYamlTemplate())
         }
         this.refreshCreateEditor()
       })
@@ -375,14 +425,8 @@ export default {
       }
 
       try {
-        // await this.createConfigmap({
-        //   wsName: this.selectedWorkspace,
-        //   nsName: this.selectedNamespace,
-        //   configmap
-        // })
-
         if (this.isEdit) {
-          await this.$store.dispatch('configmap/updateConfigmap', {
+          await this.updateConfigmap({
             wsName: this.selectedWorkspace,
             nsName: this.selectedNamespace,
             cmName: this.editingConfigMapName,
@@ -399,23 +443,18 @@ export default {
         }
         this.showCreateDialog = false
         this.fetchConfigmaps()
-
-        // 之前的代码
-        // this.$message.success('创建成功')
-        // this.showCreateDialog = false
-        // this.fetchConfigmaps()
       } catch (err) {
         const serverMessage = err?.response?.data?.msg || err?.response?.data?.message
-        console.error('创建失败', serverMessage)
-        this.$message.error('创建失败：' + (serverMessage || err.message || '未知错误'))
+        console.error('操作失败', serverMessage)
+        this.$message.error('操作失败：' + (serverMessage || err.message || '未知错误'))
       }
     },
     handleTabClick(tab) {
       if (tab.name === 'yaml') {
         this.$nextTick(() => {
-      // 强制更新 YAML 内容（防止为 // code）
-      this.$refs.createEditor?.editor?.setValue(this.createYamlContent || this.getDefaultYamlTemplate())
-      this.refreshCreateEditor()
+          // 强制更新 YAML 内容（防止为空）
+          this.$refs.createEditor?.editor?.setValue(this.createYamlContent || this.getDefaultYamlTemplate())
+          this.refreshCreateEditor()
         })
       }
     },
@@ -430,7 +469,7 @@ export default {
       this.showCreateDialog = true
     },
     generateYaml(row) {
-      return require('js-yaml').dump({
+      return yaml.dump({
         apiVersion: 'v1',
         kind: 'ConfigMap',
         metadata: {
@@ -439,17 +478,6 @@ export default {
         },
         data: row.data || {}
       })
-    },
-    async submitUpdate() {
-      const configmap = require('js-yaml').load(this.createYamlContent)
-      await this.$store.dispatch('configmap/updateConfigmap', {
-        wsName: this.selectedWorkspace,
-        nsName: this.selectedNamespace,
-        configmap
-      })
-      this.$message.success('修改成功')
-      this.showCreateDialog = false
-      this.fetchConfigmaps()
     }
   }
 }
@@ -458,13 +486,18 @@ export default {
 <style scoped>
 .configmap-page {
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 100px);
 }
+
 .filters {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
+
 .filter-label {
   font-size: 14px;
   color: #606266;
@@ -472,30 +505,26 @@ export default {
   text-align: right;
   margin-right: 5px;
 }
+
+.table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
 .dialog-footer {
   text-align: right;
 }
+
 /* 样式增强 */
 .kv-pair {
   display: flex;
   margin-bottom: 10px;
-}
-
-.configmap-page {
-  padding: 20px;
-}
-.filters {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-.filter-label {
-  font-size: 14px;
-  color: #606266;
-  min-width: 100px;
-  text-align: right;
-
-  margin-right: 5px;
+  align-items: flex-start;
 }
 </style>

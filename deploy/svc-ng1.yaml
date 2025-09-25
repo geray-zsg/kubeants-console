@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ng
+  name: ng111
+  namespace: public1
+spec:
+  ports:
+    - name: tpc
+      port: 80
+      protocol: TCP
+      targetPort: 80
+  selector:
+    app: ng
+    app.kubernetes.io/component: statefulset
+  sessionAffinity: None
+  type: ClusterIP
+

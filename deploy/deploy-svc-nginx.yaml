@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3           # 创建3个Pod副本
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25.3  # 官方Nginx镜像
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx          # 必须与Deployment的Pod标签匹配
+  ports:
+    - protocol: TCP
+      port: 80           # Service暴露的端口
+      targetPort: 80     # 容器监听的端口
+  type: ClusterIP       # 集群内访问（生产环境推荐）
+  # type: NodePort       # 开放节点端口（测试用）
+  # type: LoadBalancer  # 云厂商负载均衡（需支持）

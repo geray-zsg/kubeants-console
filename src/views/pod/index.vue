@@ -22,6 +22,7 @@
     <!-- 操作栏：批量删除 + 状态筛选 -->
     <div class="actions">
       <el-button
+        v-if="canDeleteButton"
         type="danger"
         size="mini"
         :disabled="selectedPods.length === 0"
@@ -71,8 +72,8 @@
               <el-button size="small" text @click="handleView(row)">详情</el-button>
               <!-- <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button> -->
               <el-button size="small" type="primary" @click="logView(row)">日志</el-button>
-              <el-button size="small" type="primary" @click="exec(row)">终端</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+              <el-button v-if="canEditButton" size="small" type="primary" @click="exec(row)">终端</el-button>
+              <el-button v-if="canDeleteButton" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -140,8 +141,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-// import { generateExecWsUrl } from '@/api/pods'
-// import { getToken } from '@/utils/auth' // get token from cookie
+import { hasPermission } from '@/utils/permission'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
 import { Terminal } from 'xterm'
@@ -186,6 +186,28 @@ export default {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('pods', ['pods']),
+    ...mapGetters('user', ['userBindings']),
+    canCreateButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'create'
+      })
+    },
+    canDeleteButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'delete'
+      })
+    },
+    canEditButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'edit'
+      })
+    },
     filteredNamespaces() {
       return this.namespaces.filter(ns => ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace)
     },

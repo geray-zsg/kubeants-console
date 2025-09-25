@@ -1,31 +1,26 @@
+// store/modules/permission.js
 import { asyncRoutes, constantRoutes } from '@/router'
-// import store from '@/store'
-// import Layout from '@/layout'
 
 /**
- * Use meta.role to determine if the current user has permission
- * @param roles
- * @param route
+ * 根据用户角色过滤异步路由
  */
-function hasPermission(roles, route) {
-  if (route.meta && route.meta.roles) {
-    return roles.some(role => route.meta.roles.includes(role))
-  } else {
-    return true
-  }
-}
-
-/**
- * Filter asynchronous routing tables by recursion
- * @param routes asyncRoutes
- * @param roles
- */
-export function filterAsyncRoutes(routes, roles) {
+function filterAsyncRoutes(routes, roles) {
   const res = []
 
   routes.forEach(route => {
     const tmp = { ...route }
-    if (hasPermission(roles, tmp)) {
+    // 如果路由需要权限控制
+    if (tmp.meta && tmp.meta.roles) {
+      // 检查用户是否有权限
+      const hasPermission = roles.some(role => tmp.meta.roles.includes(role))
+      if (hasPermission) {
+        if (tmp.children) {
+          tmp.children = filterAsyncRoutes(tmp.children, roles)
+        }
+        res.push(tmp)
+      }
+    } else {
+      // 不需要权限控制的路由直接加入
       if (tmp.children) {
         tmp.children = filterAsyncRoutes(tmp.children, roles)
       }
@@ -38,74 +33,63 @@ export function filterAsyncRoutes(routes, roles) {
 
 const state = {
   routes: [],
-  addRoutes: []
+  addRoutes: [],
+  isGenerated: false // 添加生成状态标记
 }
 
 const mutations = {
   SET_ROUTES: (state, routes) => {
-    state.addRoutes = routes
-    state.routes = constantRoutes.concat(routes)
+    state.addRoutes = routes || []
+    state.routes = constantRoutes.concat(routes || [])
+    state.isGenerated = true
+    console.log('📌 路由设置完成，标记为已生成，addRoutes长度:', state.addRoutes.length)
+  },
+  RESET_GENERATED: (state) => {
+    state.isGenerated = false
+    state.addRoutes = []
+    state.routes = []
   }
 }
 
 const actions = {
-  // 获取路由
-  generateRoutes({ commit }, roles) {
+  generateRoutes({ commit, state }, roles) {
     return new Promise(resolve => {
-      // let accessedRoutes
-      // let asyncRoutes = [] // 动态路由数据（从后端服务器获取）
+      // 确保roles是普通数组
+      const normalRoles = Array.isArray(roles) ? [...roles] : []
+      console.log('🎯 生成路由，角色:', normalRoles)
 
-      // // 从store中获取动态路由
-      // const menus = store.getters.menus
-      // console.log('获取到的动态路由信息menus:', menus)
+      let accessedRoutes = []
 
-      // // 处理后端的动态路由数据
-      // const menusList = []
-      // if (menus && menus.length > 0) {
-      //   for (let i = 0; i < menus.length; i++) {
-      //     const obj = {}
-      //     obj.name = menus[i].name
-      //     obj.path = menus[i].path
-      //     obj.redirect = menus[i].redirect
-      //     obj.meta = menus[i].meta
-      //     // 处理组件
-      //     if (menus[i].component === 'Layout') {
-      //       obj.component = Layout
-      //     } else {
-      //       const component = menus[i].component
-      //       obj.component = () => require([`@/views/${component}`], resolve)
-      //     }
-
-      //     // 子路由
-
-      //     menusList.push(obj)
-      //   }
-      // }
-
-      // // 将后端的路由数据直接复制给asyncRoutes
-      // asyncRoutes = menusList
-      // if (roles.includes('admin')) {
-      //   accessedRoutes = asyncRoutes || []
-      // } else {
-      //   accessedRoutes = filterAsyncRoutes(asyncRoutes, roles)
-      // }
-      // commit('SET_ROUTES', accessedRoutes)
-      // resolve(accessedRoutes)
-      let accessedRoutes
-      if (roles.includes('admin')) {
-        accessedRoutes = asyncRoutes || []
+      if (normalRoles.includes('admin') || normalRoles.includes('clusterRole')) {
+        // admin 或 clusterRole 用户拥有所有路由
+        accessedRoutes = [...asyncRoutes]
+        console.log('⭐ 用户有高级权限，挂载所有异步路由')
+      } else if (normalRoles.length === 0) {
+        // 没有角色的用户给予空路由，但确保状态被标记
+        accessedRoutes = []
+        console.log('⚠️ 用户没有角色，给予空路由')
       } else {
-        accessedRoutes = filterAsyncRoutes(asyncRoutes, roles)
+        // 根据角色过滤路由
+        accessedRoutes = filterAsyncRoutes(asyncRoutes, normalRoles)
+        console.log('🔍 根据角色过滤后的路由:', accessedRoutes)
       }
+
       commit('SET_ROUTES', accessedRoutes)
       resolve(accessedRoutes)
     })
   }
 }
 
+const getters = {
+  routes: state => state.routes,
+  addRoutes: state => state.addRoutes,
+  isGenerated: state => state.isGenerated
+}
+
 export default {
   namespaced: true,
   state,
   mutations,
-  actions
+  actions,
+  getters
 }

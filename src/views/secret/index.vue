@@ -19,42 +19,54 @@
         clearable
       />
 
-      <el-button type="primary" style="margin-left: auto" @click="openCreateDialog">
+      <el-button v-if="canCreateButton" type="primary" style="margin-left: auto" @click="openCreateDialog">
         创建保密字典
       </el-button>
     </div>
 
     <!-- Secrets 表格 -->
-    <el-table :data="filteredSecrets" border style="width: 100%">
-      <el-table-column prop="metadata.name" label="名称" width="300" />
-      <el-table-column prop="type" label="类型" width="250" />
-      <el-table-column label="字段名列表">
-        <template v-slot="{ row }">
-          <el-tag
-            v-for="(v, k) in row.data"
-            :key="k"
-            size="small"
-            type="success"
-            style="margin: 2px"
-          >
-            {{ k }}
-          </el-tag>
+    <div class="table-container">
+      <el-table
+        v-loading="loading"
+        :data="filteredSecrets"
+        border
+        style="width: 100%; overflow: auto"
+      >
+        <el-table-column prop="metadata.name" label="名称" width="200" fixed="left" />
+        <el-table-column prop="type" label="类型" width="150" />
+        <el-table-column label="字段名列表" min-width="300">
+          <template v-slot="{ row }">
+            <el-tag
+              v-for="(v, k) in row.data"
+              :key="k"
+              size="small"
+              type="success"
+              style="margin: 2px"
+            >
+              {{ k }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="metadata.namespace" label="命名空间" width="150" />
+        <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="180">
+          <template v-slot="{ row }">
+            {{ formatDate(row.metadata.creationTimestamp) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" fixed="right" width="220" align="center">
+          <template v-slot="{ row }">
+            <div class="action-buttons">
+              <el-button size="small" @click="handleView(row)">详情</el-button>
+              <el-button v-if="canEditButton" size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
+              <el-button v-if="canDeleteButton" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            </div>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无保密字典数据" />
         </template>
-      </el-table-column>
-      <el-table-column prop="metadata.namespace" label="命名空间" width="300" />
-      <el-table-column prop="metadata.creationTimestamp" label="创建时间" width="200">
-        <template v-slot="{ row }">
-          {{ formatDate(row.metadata.creationTimestamp) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作">
-        <template v-slot="{ row }">
-          <el-button @click="handleView(row)">详情</el-button>
-          <el-button type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button type="danger" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      </el-table>
+    </div>
 
     <!-- YAML + 表单 详情对话框 -->
     <el-dialog :visible.sync="showYamlDialog" title="保密字典详情" width="70%" @opened="refreshMonacoEditor">
@@ -193,6 +205,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { hasPermission } from '@/utils/permission'
 import MonacoEditor from 'vue-monaco-editor'
 import yaml from 'js-yaml'
 
@@ -208,6 +221,7 @@ export default {
       viewTab: 'yaml',
       secretDetail: {},
       showFields: {},
+      loading: false,
       detailEditorOptions: {
         readOnly: true,
         automaticLayout: true,
@@ -264,12 +278,35 @@ export default {
     ...mapGetters('dashboard', ['workspaces']),
     ...mapGetters('workspace', ['namespaces']),
     ...mapGetters('secrets', ['secrets']),
+    ...mapGetters('user', ['userBindings']),
+    canCreateButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'create'
+      })
+    },
+    canDeleteButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'delete'
+      })
+    },
+    canEditButton() {
+      return hasPermission(this.userBindings, {
+        wsName: this.selectedWorkspace,
+        nsName: this.selectedNamespace,
+        action: 'edit'
+      })
+    },
     filteredNamespaces() {
       return this.namespaces.filter(ns =>
         ns.metadata.labels?.['kubeants.io/workspace'] === this.selectedWorkspace
       )
     },
     filteredSecrets() {
+      if (!this.secrets) return []
       if (!this.searchText) return this.secrets
       return this.secrets.filter(secret =>
         secret.metadata.name.includes(this.searchText)
@@ -299,13 +336,24 @@ export default {
     },
     async fetchSecrets() {
       if (!this.selectedWorkspace || !this.selectedNamespace) return
-      await this.getSecrets({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+      this.loading = true
+      try {
+        await this.getSecrets({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
+      } catch (error) {
+        console.error('获取Secrets失败:', error)
+      } finally {
+        this.loading = false
+      }
     },
     async handleDelete(row) {
       this.$confirm(`确认删除secret [${row.metadata.name}]？`, '提示', { type: 'warning' }).then(async() => {
-        await this.deleteSecret({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, secretName: row.metadata.name })
-        this.fetchSecrets()
-        this.$message.success('删除成功')
+        try {
+          await this.deleteSecret({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace, secretName: row.metadata.name })
+          this.fetchSecrets()
+          this.$message.success('删除成功')
+        } catch (error) {
+          this.$message.error('删除失败: ' + (error.response?.data?.msg || error.message))
+        }
       })
     },
     async handleView(row) {
@@ -491,8 +539,8 @@ export default {
     handleTabClick(tab) {
       if (tab.name === 'yaml') {
         this.$nextTick(() => {
-      this.$refs.createEditor?.editor?.setValue(this.createYamlContent || this.getDefaultYamlTemplate())
-      this.refreshMonacoEditor()
+          this.$refs.createEditor?.editor?.setValue(this.createYamlContent || this.getDefaultYamlTemplate())
+          this.refreshMonacoEditor()
         })
       }
     },
@@ -538,58 +586,14 @@ export default {
       }
     },
 
-    async handleCreateDockerSecret() {
-      const { protocol, registry, username, password, email } = this.dockerForm
-      if (!registry || !username || !password) {
-        this.$message.error('仓库地址、用户名、密码为必填')
-        return
-      }
-
-      const auth = btoa(`${username}:${password}`)
-      const json = {
-        auths: {
-          [`${protocol}://${registry}`]: {
-            username,
-            password,
-            email,
-            auth
-          }
-        }
-      }
-
-      const payload = {
-        apiVersion: 'v1',
-        kind: 'Secret',
-        metadata: {
-          name: `docker-secret-${Date.now()}`,
-          namespace: this.selectedNamespace
-        },
-        type: 'kubernetes.io/dockerconfigjson',
-        data: {
-          '.dockerconfigjson': btoa(JSON.stringify(json))
-        }
-      }
-
+    async handleEdit(row) {
       try {
-        await this.createSecrets({
+        const res = await this.getSecretDetail({
           wsName: this.selectedWorkspace,
           nsName: this.selectedNamespace,
-          secret: payload
+          secretName: row.metadata.name
         })
-        this.$message.success('Secret 创建成功')
-        this.showCreateDialog = false
-        this.getSecrets({ wsName: this.selectedWorkspace, nsName: this.selectedNamespace })
-      } catch (err) {
-        console.error('创建失败', err)
-        this.$message.error('创建失败')
-      }
-    },
-    handleEdit(row) {
-      this.getSecretDetail({
-        wsName: this.selectedWorkspace,
-        nsName: this.selectedNamespace,
-        secretName: row.metadata.name
-      }).then((res) => {
+
         this.isEditMode = true
         this.createForm.name = res.metadata.name
         this.createForm.type = res.type || 'Opaque'
@@ -621,10 +625,10 @@ export default {
         this.createYamlContent = yaml.dump(res)
         this.createTab = 'form'
         this.showCreateDialog = true
-      }).catch((err) => {
+      } catch (err) {
         console.error('获取编辑数据失败', err)
         this.$message.error('获取数据失败')
-      })
+      }
     }
 
   }
@@ -634,13 +638,18 @@ export default {
 <style scoped>
 .secret-page {
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 100px);
 }
+
 .filters {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
+
 .filter-label {
   font-size: 14px;
   color: #606266;
@@ -648,11 +657,25 @@ export default {
   text-align: right;
   margin-right: 5px;
 }
+
+.table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
 .dialog-footer {
   text-align: right;
 }
+
 .kv-pair {
   display: flex;
   margin-bottom: 10px;
+  align-items: flex-start;
 }
 </style>
