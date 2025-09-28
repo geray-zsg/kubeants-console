@@ -144,7 +144,7 @@ export default {
   computed: {
     ...mapGetters('workspace', ['namespaces', 'userBindings']),
     ...mapGetters('dashboard', ['workspaces']),
-    ...mapGetters('user', ['userBindings']),
+    // ...mapGetters('user', ['userBindings']),
     // 判断是否有创建权限
     canCreateButton() {
       return hasWorkspacePermission(this.userBindings, {

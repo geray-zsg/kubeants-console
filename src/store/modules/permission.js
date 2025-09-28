@@ -34,7 +34,8 @@ function filterAsyncRoutes(routes, roles) {
 const state = {
   routes: [],
   addRoutes: [],
-  isGenerated: false // 添加生成状态标记
+  isGenerated: false, // 添加生成状态标记
+  routeGenerationInProgress: false // 添加路由生成进行中状态
 }
 
 const mutations = {
@@ -44,10 +45,16 @@ const mutations = {
     state.isGenerated = true
     console.log('📌 路由设置完成，标记为已生成，addRoutes长度:', state.addRoutes.length)
   },
+  // 添加缺失的 mutation
+  SET_ROUTE_GENERATION_STATUS: (state, status) => {
+    state.routeGenerationInProgress = status
+    console.log('🔄 路由生成状态更新为:', status)
+  },
   RESET_GENERATED: (state) => {
     state.isGenerated = false
     state.addRoutes = []
     state.routes = []
+    state.routeGenerationInProgress = false
   }
 }
 
@@ -83,7 +90,9 @@ const actions = {
 const getters = {
   routes: state => state.routes,
   addRoutes: state => state.addRoutes,
-  isGenerated: state => state.isGenerated
+  isGenerated: state => state.isGenerated,
+  // 添加缺失的 getter
+  routeGenerationInProgress: state => state.routeGenerationInProgress
 }
 
 export default {
