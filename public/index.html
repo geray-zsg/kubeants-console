@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<!-- <script>
+<script>
   window._env_ = {}
-  // 异步请求 config.json（同步方式也可以）
-  fetch('./config.json')
-    .then((res) => res.json())
-    .then((config) => {
-      window._env_ = config
-    })
-    .catch((e) => {
-      console.warn('config.json 加载失败，使用默认配置', e)
-    })
-</script> -->
+  try {
+    var xhr = new XMLHttpRequest()
+    xhr.open("GET", "/config.json", false)  // 同步请求，保证加载到
+    xhr.send(null)
+    if (xhr.status === 200) {
+      window._env_ = JSON.parse(xhr.responseText)
+    }
+  } catch (e) {
+    console.error("加载 config.json 失败", e)
+  }
+</script>
 <html>
 
 <head>

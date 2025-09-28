@@ -7,34 +7,42 @@ metadata:
 data:
   config.json: |-
     {
-        "VUE_APP_BASE_API": "http://172.17.142.147:30002/"
+        "VUE_APP_BASE_API": "/gapi"
     }
   default.conf: |-
     server {
         listen 80;
         server_name localhost;
+        
+        # 静态资源服务
         location /ka-console {
-            # 使用 alias 替代 root，直接指向 dist 目录
-            alias /usr/share/nginx/html/;  # 注意结尾的斜杠
+            alias /usr/share/nginx/html/;
             index index.html;
-            try_files $uri $uri/ /demo/index.html;  # 确保回退到 index.html
+            try_files $uri $uri/ /ka-console/index.html;
         }
-        # 可选：处理直接访问根路径的情况
+        
         location / {
             root /usr/share/nginx/html;
             index index.html;
             try_files $uri /index.html;
         }
-        # location /config.json {
-        #   alias /usr/share/nginx/html/config.json;
-        #   expires -1; # 禁止缓存
-        # }
-        # 新增：反向代理到后端 API
+        
+        # API 代理配置
         location /gapi/ {
-            proxy_pass http://kubeants-apiserver.kubeants-system:80; # 替换为实际后端地址
+            proxy_pass http://kubeants-apiserver.kubeants-system:8080/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 添加跨域支持
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS, PUT, DELETE';
+            add_header Access-Control-Allow-Headers 'DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization';
+            
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
         }
     }
 
@@ -73,11 +81,11 @@ spec:
             defaultMode: 420
       containers:
         - name: container-y2072s
-          image: 'registry.cn-hangzhou.aliyuncs.com/geray/kubeants-console:v1.1.17'
-          imagePullPolicy: Always
+          image: 'registry.cn-hangzhou.aliyuncs.com/geray/kubeants-console:v1.1.38'
+          imagePullPolicy: IfNotPresent
           env:
             - name: VUE_APP_BASE_API
-              value: 'http://172.17.142.147:30002/'
+              value: '/gapi'  # 改为相对路径
           ports:
             - name: http-0
               containerPort: 80
@@ -100,7 +108,6 @@ spec:
             - name: volume-li19dt
               mountPath: /usr/share/nginx/html/config.json
               subPath: config.json
-
 ---
 apiVersion: v1
 kind: Service
